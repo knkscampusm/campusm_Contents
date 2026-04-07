@@ -289,6 +289,8 @@
     </div>
   </div>
 
+  <div id="refundNotice" style="display:none;background:#fff;border:1px solid #e5e5e3;border-radius:14px;padding:1.125rem 1.375rem;margin-bottom:0.875rem;"></div>
+
   <div id="contentsSection" style="display:none;">
     <div style="font-size:13px;font-weight:600;color:#888;margin-bottom:0.625rem;padding-left:2px;">콘텐츠 선택</div>
     <div id="contentList"></div>
@@ -318,19 +320,24 @@
   <!-- 콘텐츠 관리 -->
   <div id="tab0" class="tab-pane active">
     <div class="card">
+      <div class="section-title">환불 기준일 설정</div>
+      <p style="font-size:13px;color:#888;margin-bottom:12px;">이 날짜 이후에 배부되는 콘텐츠만 환불 가능 상태로 표시됩니다.</p>
+      <div class="row">
+        <input type="date" id="cutoffDate" style="flex:1;" />
+        <button class="btn btn-primary" onclick="saveCutoffDate()" style="padding:13px 20px;">저장</button>
+      </div>
+      <div id="cutoffMsg" class="msg"></div>
+    </div>
+    <div class="card">
       <div class="section-title">콘텐츠 추가</div>
       <div class="add-grid">
         <div class="span2">
           <label>콘텐츠 이름</label>
           <input type="text" id="newName" placeholder="예: 국어 위클리팩 1호" />
         </div>
-        <div>
+        <div class="span2">
           <label>배부일</label>
           <input type="date" id="newDelivery" />
-        </div>
-        <div>
-          <label>환불 가능 시작일</label>
-          <input type="date" id="newRefund" />
         </div>
         <div class="span2">
           <button class="btn btn-primary btn-full" onclick="addContent()">추가하기</button>
@@ -408,25 +415,118 @@ const db   = firebase.firestore();
 
 /* ── 초기 콘텐츠 데이터 ── */
 const INITIAL_CONTENTS = [
-  { id: "ko_1", name: "강모K 국어",   category: "국어",   order: 1  },
-  { id: "ko_2", name: "이감",         category: "국어",   order: 2  },
-  { id: "ko_3", name: "CRUX 국어",    category: "국어",   order: 3  },
-  { id: "ko_4", name: "FF",           category: "국어",   order: 4  },
-  { id: "ma_1", name: "강모K 수학",   category: "수학",   order: 5  },
-  { id: "ma_2", name: "The Constant", category: "수학",   order: 6  },
-  { id: "ma_3", name: "CIRCUIT 수학", category: "수학",   order: 7  },
-  { id: "ma_4", name: "CRUX 수학",    category: "수학",   order: 8  },
-  { id: "ma_5", name: "CONNEX 수학",  category: "수학",   order: 9  },
-  { id: "ma_6", name: "강모X 수학",   category: "수학",   order: 10 },
-  { id: "en_1", name: "강모K 영어",   category: "영어",   order: 11 },
-  { id: "en_2", name: "CIRCUIT 영어", category: "영어",   order: 12 },
-  { id: "sc_1", name: "CIRCUIT 과학", category: "과학탐구", order: 13 },
-  { id: "sc_2", name: "CRUX 과학",    category: "과학탐구", order: 14 },
+  { id: "ko_crux_1",  name: "CRUX 공통국어 1회",           category: "국어",    order: 1,   deliveryDate: "2026-02-26" },
+  { id: "ko_crux_2",  name: "CRUX 공통국어 2회",           category: "국어",    order: 2,   deliveryDate: "2026-03-05" },
+  { id: "ko_crux_3",  name: "CRUX 공통국어 3회",           category: "국어",    order: 3,   deliveryDate: "2026-03-12" },
+  { id: "ko_crux_4",  name: "CRUX 화작·언매 4회",          category: "국어",    order: 4,   deliveryDate: "2026-03-18" },
+  { id: "ko_crux_5",  name: "CRUX 공통국어 5회",           category: "국어",    order: 5,   deliveryDate: "2026-03-26" },
+  { id: "ko_crux_6",  name: "CRUX 공통국어 6회",           category: "국어",    order: 6,   deliveryDate: "2026-04-02" },
+  { id: "ko_crux_7",  name: "CRUX 공통국어 7회",           category: "국어",    order: 7,   deliveryDate: "2026-04-09" },
+  { id: "ko_crux_8",  name: "CRUX 화작·언매 8회",          category: "국어",    order: 8,   deliveryDate: "2026-04-16" },
+  { id: "ko_crux_9",  name: "CRUX 공통국어 9회",           category: "국어",    order: 9,   deliveryDate: "2026-04-23" },
+  { id: "ko_crux_10", name: "CRUX 공통국어 10회",          category: "국어",    order: 10,  deliveryDate: "2026-04-30" },
+  { id: "ko_crux_11", name: "CRUX 공통국어 11회",          category: "국어",    order: 11,  deliveryDate: "2026-05-07" },
+  { id: "ko_crux_12", name: "CRUX 화작·언매 12회",         category: "국어",    order: 12,  deliveryDate: "2026-05-14" },
+  { id: "ko_gmk_1",   name: "강대모의고사K 국어 1회",      category: "국어",    order: 13,  deliveryDate: "2026-04-02" },
+  { id: "ko_gmk_2",   name: "강대모의고사K 국어 2회",      category: "국어",    order: 14,  deliveryDate: "2026-04-23" },
+  { id: "ko_gmk_3",   name: "강대모의고사K 국어 3회",      category: "국어",    order: 15,  deliveryDate: "2026-05-20" },
+  { id: "ko_gmk_4",   name: "강대모의고사K 국어 4회",      category: "국어",    order: 16,  deliveryDate: "2026-06-18" },
+  { id: "ko_ff_1",    name: "FF 1회",                      category: "국어",    order: 17,  deliveryDate: "2026-05-20" },
+  { id: "ko_ff_2",    name: "FF 2회",                      category: "국어",    order: 18,  deliveryDate: "2026-05-28" },
+  { id: "ko_ff_3",    name: "FF 3회",                      category: "국어",    order: 19,  deliveryDate: "2026-06-05" },
+  { id: "ko_ff_4",    name: "FF 4회",                      category: "국어",    order: 20,  deliveryDate: "2026-06-11" },
+  { id: "ko_ff_5",    name: "FF 5회",                      category: "국어",    order: 21,  deliveryDate: "2026-06-18" },
+  { id: "ko_ff_6",    name: "FF 6회",                      category: "국어",    order: 22,  deliveryDate: "2026-06-25" },
+  { id: "ko_hsw_1",   name: "한수위 모의고사 1회",          category: "국어",    order: 23,  deliveryDate: "2026-06-11" },
+  { id: "ko_hsw_2",   name: "한수위 모의고사 2회",          category: "국어",    order: 24,  deliveryDate: "2026-06-18" },
+  { id: "ma_crux_1",  name: "CRUX 수학 1회",               category: "수학",    order: 25,  deliveryDate: "2026-02-26" },
+  { id: "ma_crux_2",  name: "CRUX 수학 2회",               category: "수학",    order: 26,  deliveryDate: "2026-03-12" },
+  { id: "ma_crux_3",  name: "CRUX 수학 3회",               category: "수학",    order: 27,  deliveryDate: "2026-03-26" },
+  { id: "ma_cn_si_1", name: "CONNEX 수학(수I·수II) 1회",  category: "수학",    order: 28,  deliveryDate: "2026-02-26" },
+  { id: "ma_cn_si_2", name: "CONNEX 수학(수I·수II) 2회",  category: "수학",    order: 29,  deliveryDate: "2026-03-05" },
+  { id: "ma_cn_si_3", name: "CONNEX 수학(수I·수II) 3회",  category: "수학",    order: 30,  deliveryDate: "2026-03-18" },
+  { id: "ma_cn_si_4", name: "CONNEX 수학(수I·수II) 4회",  category: "수학",    order: 31,  deliveryDate: "2026-04-02" },
+  { id: "ma_cn_si_5", name: "CONNEX 수학(수I·수II) 5회",  category: "수학",    order: 32,  deliveryDate: "2026-04-16" },
+  { id: "ma_cn_si_6", name: "CONNEX 수학(수I·수II) 6회",  category: "수학",    order: 33,  deliveryDate: "2026-04-30" },
+  { id: "ma_cn_si_7", name: "CONNEX 수학(수I·수II) 7회",  category: "수학",    order: 34,  deliveryDate: "2026-05-14" },
+  { id: "ma_cn_mi_1", name: "CONNEX 수학(미적분·확통) 1회", category: "수학",  order: 35,  deliveryDate: "2026-03-12" },
+  { id: "ma_cn_mi_2", name: "CONNEX 수학(미적분·확통) 2회", category: "수학",  order: 36,  deliveryDate: "2026-03-26" },
+  { id: "ma_cn_mi_3", name: "CONNEX 수학(미적분·확통) 3회", category: "수학",  order: 37,  deliveryDate: "2026-04-09" },
+  { id: "ma_cn_mi_4", name: "CONNEX 수학(미적분·확통) 4회", category: "수학",  order: 38,  deliveryDate: "2026-04-23" },
+  { id: "ma_cn_mi_5", name: "CONNEX 수학(미적분·확통) 5회", category: "수학",  order: 39,  deliveryDate: "2026-05-07" },
+  { id: "ma_cn_hak_6",name: "CONNEX 수학(확통) 6회",       category: "수학",    order: 40,  deliveryDate: "2026-05-20" },
+  { id: "ma_cn_mi_67",name: "CONNEX 수학(미적) 6·7회",     category: "수학",    order: 41,  deliveryDate: "2026-05-20" },
+  { id: "ma_ci_1_3",  name: "CIRCUIT 수학 1~3회",           category: "수학",    order: 42,  deliveryDate: "2026-03-12" },
+  { id: "ma_ci_4_6",  name: "CIRCUIT 수학 4~6회",           category: "수학",    order: 43,  deliveryDate: "2026-03-18" },
+  { id: "ma_ci_7_9",  name: "CIRCUIT 수학 7~9회",           category: "수학",    order: 44,  deliveryDate: "2026-03-26" },
+  { id: "ma_ci_10_12",name: "CIRCUIT 수학 10~12회",         category: "수학",    order: 45,  deliveryDate: "2026-04-02" },
+  { id: "ma_ci_13_15",name: "CIRCUIT 수학 13~15회",         category: "수학",    order: 46,  deliveryDate: "2026-04-09" },
+  { id: "ma_ci_16_18",name: "CIRCUIT 수학 16~18회",         category: "수학",    order: 47,  deliveryDate: "2026-04-16" },
+  { id: "ma_ci_19_21",name: "CIRCUIT 수학 19~21회",         category: "수학",    order: 48,  deliveryDate: "2026-04-23" },
+  { id: "ma_ci_22_24",name: "CIRCUIT 수학 22~24회",         category: "수학",    order: 49,  deliveryDate: "2026-05-14" },
+  { id: "ma_ci_25_27",name: "CIRCUIT 수학 25~27회",         category: "수학",    order: 50,  deliveryDate: "2026-05-20" },
+  { id: "ma_ci_28_30",name: "CIRCUIT 수학 28~30회",         category: "수학",    order: 51,  deliveryDate: "2026-05-28" },
+  { id: "ma_ci_31_33",name: "CIRCUIT 수학 31~33회",         category: "수학",    order: 52,  deliveryDate: "2026-06-05" },
+  { id: "ma_ci_34_36",name: "CIRCUIT 수학 34~36회",         category: "수학",    order: 53,  deliveryDate: "2026-06-11" },
+  { id: "ma_ci_37_39",name: "CIRCUIT 수학 37~39회",         category: "수학",    order: 54,  deliveryDate: "2026-06-18" },
+  { id: "ma_ci_40_42",name: "CIRCUIT 수학 40~42회",         category: "수학",    order: 55,  deliveryDate: "2026-06-25" },
+  { id: "ma_tc_1",    name: "The Constant 1회",              category: "수학",    order: 56,  deliveryDate: "2026-03-12" },
+  { id: "ma_tc_2",    name: "The Constant 2회",              category: "수학",    order: 57,  deliveryDate: "2026-03-18" },
+  { id: "ma_tc_3",    name: "The Constant 3회",              category: "수학",    order: 58,  deliveryDate: "2026-03-26" },
+  { id: "ma_tc_4",    name: "The Constant 4회",              category: "수학",    order: 59,  deliveryDate: "2026-04-02" },
+  { id: "ma_tc_5",    name: "The Constant 5회",              category: "수학",    order: 60,  deliveryDate: "2026-04-09" },
+  { id: "ma_tc_6",    name: "The Constant 6회",              category: "수학",    order: 61,  deliveryDate: "2026-04-16" },
+  { id: "ma_tc_7",    name: "The Constant 7회",              category: "수학",    order: 62,  deliveryDate: "2026-04-23" },
+  { id: "ma_tc_8",    name: "The Constant 8회",              category: "수학",    order: 63,  deliveryDate: "2026-04-30" },
+  { id: "ma_tc_9",    name: "The Constant 9회",              category: "수학",    order: 64,  deliveryDate: "2026-05-07" },
+  { id: "ma_tc_10",   name: "The Constant 10회",             category: "수학",    order: 65,  deliveryDate: "2026-05-14" },
+  { id: "ma_tc_11",   name: "The Constant 11회",             category: "수학",    order: 66,  deliveryDate: "2026-05-20" },
+  { id: "ma_tc_12",   name: "The Constant 12회",             category: "수학",    order: 67,  deliveryDate: "2026-05-28" },
+  { id: "ma_tc_13",   name: "The Constant 13회",             category: "수학",    order: 68,  deliveryDate: "2026-06-05" },
+  { id: "ma_tc_14",   name: "The Constant 14회",             category: "수학",    order: 69,  deliveryDate: "2026-06-11" },
+  { id: "en_ci_1_2",  name: "CIRCUIT 영어 1·2회",            category: "영어",    order: 70,  deliveryDate: "2026-03-12" },
+  { id: "en_ci_3_4",  name: "CIRCUIT 영어 3·4회",            category: "영어",    order: 71,  deliveryDate: "2026-03-18" },
+  { id: "en_ci_5_6",  name: "CIRCUIT 영어 5·6회",            category: "영어",    order: 72,  deliveryDate: "2026-03-26" },
+  { id: "en_ci_7_8",  name: "CIRCUIT 영어 7·8회",            category: "영어",    order: 73,  deliveryDate: "2026-04-02" },
+  { id: "en_ci_9_10", name: "CIRCUIT 영어 9·10회",           category: "영어",    order: 74,  deliveryDate: "2026-04-09" },
+  { id: "en_ci_11_12",name: "CIRCUIT 영어 11·12회",          category: "영어",    order: 75,  deliveryDate: "2026-04-16" },
+  { id: "en_ci_13_14",name: "CIRCUIT 영어 13·14회",          category: "영어",    order: 76,  deliveryDate: "2026-04-23" },
+  { id: "en_ci_15_16",name: "CIRCUIT 영어 15·16회",          category: "영어",    order: 77,  deliveryDate: "2026-04-30" },
+  { id: "en_ci_17_18",name: "CIRCUIT 영어 17·18회",          category: "영어",    order: 78,  deliveryDate: "2026-05-07" },
+  { id: "en_ci_19_20",name: "CIRCUIT 영어 19·20회",          category: "영어",    order: 79,  deliveryDate: "2026-05-14" },
+  { id: "en_ci_21_22",name: "CIRCUIT 영어 21·22회",          category: "영어",    order: 80,  deliveryDate: "2026-05-20" },
+  { id: "en_ci_23_24",name: "CIRCUIT 영어 23·24회",          category: "영어",    order: 81,  deliveryDate: "2026-05-28" },
+  { id: "en_ci_25_26",name: "CIRCUIT 영어 25·26회",          category: "영어",    order: 82,  deliveryDate: "2026-06-05" },
+  { id: "en_ci_27_28",name: "CIRCUIT 영어 27·28회",          category: "영어",    order: 83,  deliveryDate: "2026-06-11" },
+  { id: "en_ci_29_30",name: "CIRCUIT 영어 29·30회",          category: "영어",    order: 84,  deliveryDate: "2026-06-18" },
+  { id: "en_ci_31_32",name: "CIRCUIT 영어 31·32회",          category: "영어",    order: 85,  deliveryDate: "2026-06-25" },
+  { id: "sc_crux_1",  name: "CRUX 과학 1회",                 category: "과학탐구", order: 86,  deliveryDate: "2026-02-26" },
+  { id: "sc_crux_2",  name: "CRUX 과학 2회",                 category: "과학탐구", order: 87,  deliveryDate: "2026-03-05" },
+  { id: "sc_crux_3",  name: "CRUX 과학 3회",                 category: "과학탐구", order: 88,  deliveryDate: "2026-03-12" },
+  { id: "sc_crux_4",  name: "CRUX 과학 4회",                 category: "과학탐구", order: 89,  deliveryDate: "2026-03-18" },
+  { id: "sc_crux_5",  name: "CRUX 과학 5회",                 category: "과학탐구", order: 90,  deliveryDate: "2026-03-26" },
+  { id: "sc_crux_6",  name: "CRUX 과학 6회",                 category: "과학탐구", order: 91,  deliveryDate: "2026-04-02" },
+  { id: "sc_crux_7",  name: "CRUX 과학 7회",                 category: "과학탐구", order: 92,  deliveryDate: "2026-04-09" },
+  { id: "sc_crux_8",  name: "CRUX 과학 8회",                 category: "과학탐구", order: 93,  deliveryDate: "2026-04-16" },
+  { id: "sc_crux_9",  name: "CRUX 과학 9회",                 category: "과학탐구", order: 94,  deliveryDate: "2026-04-23" },
+  { id: "sc_crux_10", name: "CRUX 과학 10회",                category: "과학탐구", order: 95,  deliveryDate: "2026-04-30" },
+  { id: "sc_crux_11", name: "CRUX 과학 11회",                category: "과학탐구", order: 96,  deliveryDate: "2026-05-07" },
+  { id: "sc_crux_12", name: "CRUX 과학 12회",                category: "과학탐구", order: 97,  deliveryDate: "2026-05-14" },
+  { id: "sc_ci_1_2",  name: "CIRCUIT 과학 1·2회",            category: "과학탐구", order: 98,  deliveryDate: "2026-04-09" },
+  { id: "sc_ci_3_4",  name: "CIRCUIT 과학 3·4회",            category: "과학탐구", order: 99,  deliveryDate: "2026-04-16" },
+  { id: "sc_ci_5_6",  name: "CIRCUIT 과학 5·6회",            category: "과학탐구", order: 100, deliveryDate: "2026-04-23" },
+  { id: "sc_ci_7_8",  name: "CIRCUIT 과학 7·8회",            category: "과학탐구", order: 101, deliveryDate: "2026-04-30" },
+  { id: "sc_ci_9_10", name: "CIRCUIT 과학 9·10회",           category: "과학탐구", order: 102, deliveryDate: "2026-05-07" },
+  { id: "sc_ci_11_12",name: "CIRCUIT 과학 11·12회",          category: "과학탐구", order: 103, deliveryDate: "2026-05-14" },
+  { id: "sc_ci_13_14",name: "CIRCUIT 과학 13·14회",          category: "과학탐구", order: 104, deliveryDate: "2026-05-20" },
+  { id: "sc_ci_15_16",name: "CIRCUIT 과학 15·16회",          category: "과학탐구", order: 105, deliveryDate: "2026-05-28" },
+  { id: "sc_ci_17_18",name: "CIRCUIT 과학 17·18회",          category: "과학탐구", order: 106, deliveryDate: "2026-06-05" },
+  { id: "sc_ci_19_20",name: "CIRCUIT 과학 19·20회",          category: "과학탐구", order: 107, deliveryDate: "2026-06-11" },
 ];
 
 async function seedContentsIfEmpty() {
   const snap = await db.collection("contents").limit(1).get();
-  if (!snap.empty) return; // 이미 데이터 있으면 스킵
+  if (!snap.empty) return;
   const batch = db.batch();
   INITIAL_CONTENTS.forEach(item => {
     const ref = db.collection("contents").doc(item.id);
@@ -434,18 +534,19 @@ async function seedContentsIfEmpty() {
       name:                item.name,
       category:            item.category,
       order:               item.order,
-      deliveryDate:        null,
+      deliveryDate:        item.deliveryDate || null,
       refundAvailableFrom: null
     });
   });
   await batch.commit();
-  console.log("초기 콘텐츠 설정 완료");
+  console.log("초기 콘텐츠 설정 완료: 107개");
 }
 seedContentsIfEmpty();
 
-let student    = null;
-let contents   = [];
-let selections = {};
+let student      = null;
+let contents     = [];
+let selections   = {};
+let refundCutoff = null; // 관리자가 설정한 환불 기준일
 
 /* ── UTILS ── */
 function toast(msg) {
@@ -487,6 +588,7 @@ async function lookupStudent() {
     document.getElementById("studentInfoCard").style.display = "";
 
     await loadContentsAndPrev();
+    renderNotice();
     renderContents();
   } catch(err) {
     setMsg("lookupMsg", "조회 실패: " + err.message, "error");
@@ -497,15 +599,68 @@ async function lookupStudent() {
 
 /* ── STUDENT: load ── */
 async function loadContentsAndPrev() {
-  const [cSnap, sDoc] = await Promise.all([
+  const [cSnap, sDoc, settingDoc] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
-    db.collection("submissions").doc(student.id).get()
+    db.collection("submissions").doc(student.id).get(),
+    db.collection("settings").doc("refund").get()
   ]);
-  contents   = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  selections = sDoc.exists ? (sDoc.data().selections || {}) : {};
+  contents     = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  selections   = sDoc.exists ? (sDoc.data().selections || {}) : {};
+  refundCutoff = settingDoc.exists ? (settingDoc.data().cutoffDate || null) : null;
 }
 
 /* ── STUDENT: render ── */
+function formatDateKR(dateStr) {
+  if (!dateStr) return "";
+  const [, m, d] = dateStr.split("-");
+  return `${parseInt(m)}월 ${parseInt(d)}일`;
+}
+
+function getSeriesName(name) {
+  return name.replace(/\s+[\d~·\-]+회$/, "").trim();
+}
+
+function getFirstRound(name) {
+  const m = name.match(/([\d~·\-]+회)$/);
+  return m ? m[1] : name;
+}
+
+function renderNotice() {
+  const el = document.getElementById("refundNotice");
+  if (!refundCutoff) { el.style.display = "none"; return; }
+
+  const refundable = contents
+    .filter(c => c.deliveryDate && c.deliveryDate > refundCutoff)
+    .sort((a, b) => a.order - b.order);
+
+  if (!refundable.length) { el.style.display = "none"; return; }
+
+  // 시리즈별 첫 번째 환불 가능 회차만 추출
+  const seriesMap = new Map();
+  refundable.forEach(item => {
+    const series = getSeriesName(item.name);
+    if (!seriesMap.has(series)) seriesMap.set(series, item);
+  });
+
+  const rows = Array.from(seriesMap.entries())
+    .map(([series, item]) =>
+      `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f0ee;font-size:13px;">
+        <span style="color:#555;">${series}</span>
+        <span style="font-weight:600;color:#1a1a1a;">${getFirstRound(item.name)}부터</span>
+      </div>`)
+    .join("");
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:#2BADA0;flex-shrink:0;"></div>
+      <span style="font-size:13px;font-weight:600;color:#2BADA0;">
+        ${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/환불 가능합니다
+      </span>
+    </div>
+    <div style="padding:0 4px;">${rows}</div>`;
+  el.style.display = "";
+}
+
 function renderContents() {
   const t    = today();
   const list = document.getElementById("contentList");
@@ -517,8 +672,9 @@ function renderContents() {
   }
 
   list.innerHTML = contents.map(c => {
-    const refundOk = c.refundAvailableFrom && c.refundAvailableFrom <= t;
-    if (!selections[c.id]) selections[c.id] = "신청"; // 기본값: 신청
+    // 배부일이 기준일보다 미래인 경우만 환불 가능 (아직 배부 안 됨)
+    const refundOk = refundCutoff && c.deliveryDate && c.deliveryDate > refundCutoff;
+    if (!selections[c.id]) selections[c.id] = "신청";
     const sel = selections[c.id];
 
     return `
@@ -528,13 +684,11 @@ function renderContents() {
             <div class="content-name">${c.name}</div>
             <div class="content-dates">
               ${c.deliveryDate ? "배부일 " + c.deliveryDate : ""}
-              ${c.deliveryDate && c.refundAvailableFrom ? " &nbsp;·&nbsp; " : ""}
-              ${c.refundAvailableFrom ? "환불 시작 " + c.refundAvailableFrom : ""}
             </div>
           </div>
-          ${c.refundAvailableFrom ? `
+          ${refundCutoff && c.deliveryDate ? `
             <div class="refund-tag ${refundOk ? "refund-on" : "refund-off"}">
-              ${refundOk ? "환불 가능" : "환불 불가"}
+              ${refundOk ? "환불 가능" : "배부 완료"}
             </div>` : ""}
         </div>
         <div class="sel-row">
@@ -591,6 +745,7 @@ async function adminLogin() {
     closeModal();
     document.getElementById("studentView").style.display = "none";
     document.getElementById("adminView").style.display   = "";
+    loadCutoffDate();
     loadAdminContents();
     loadSubmissions();
   } catch {
@@ -602,6 +757,22 @@ async function adminLogout() {
   await auth.signOut();
   document.getElementById("adminView").style.display   = "none";
   document.getElementById("studentView").style.display = "";
+}
+
+/* ── ADMIN: refund cutoff ── */
+async function saveCutoffDate() {
+  const val = document.getElementById("cutoffDate").value;
+  if (!val) { setMsg("cutoffMsg", "날짜를 선택해주세요.", "error"); return; }
+  await db.collection("settings").doc("refund").set({ cutoffDate: val });
+  setMsg("cutoffMsg", "✓ 저장되었습니다", "success");
+  setTimeout(() => setMsg("cutoffMsg", ""), 2000);
+}
+
+async function loadCutoffDate() {
+  const doc = await db.collection("settings").doc("refund").get();
+  if (doc.exists && doc.data().cutoffDate) {
+    document.getElementById("cutoffDate").value = doc.data().cutoffDate;
+  }
 }
 
 /* ── ADMIN: contents ── */
@@ -616,15 +787,13 @@ async function addContent() {
 
   await db.collection("contents").add({
     name,
-    deliveryDate:        delivery || null,
-    refundAvailableFrom: refund   || null,
+    deliveryDate: delivery || null,
     order: lastOrder + 1,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 
   document.getElementById("newName").value     = "";
   document.getElementById("newDelivery").value = "";
-  document.getElementById("newRefund").value   = "";
   toast("콘텐츠가 추가되었습니다");
   loadAdminContents();
 }
