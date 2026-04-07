@@ -278,16 +278,21 @@
       <input type="text" id="sidInput" placeholder="학번을 입력하세요" maxlength="20" inputmode="numeric" style="flex:1;" />
       <button class="btn btn-primary" id="lookupBtn" onclick="lookupStudent()" style="padding:13px 22px;">조회</button>
     </div>
+    <div style="font-size:13px;color:#2BADA0;text-align:center;margin-top:10px;font-weight:500;">학생증을 태깅해주세요</div>
     <div id="lookupMsg" class="msg"></div>
   </div>
 
   <div id="studentInfoCard" class="card" style="display:none;">
-    <div class="student-row">
-      <span class="student-name" id="disp_name"></span>
-      <span class="badge badge-teal" id="disp_ban"></span>
-      <span class="badge badge-gray" id="disp_group"></span>
-      <span class="badge" id="disp_type" style="display:none;background:#fff8e1;color:#f9a825;"></span>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div class="student-row" style="flex:1;flex-wrap:wrap;">
+        <span class="student-name" id="disp_name"></span>
+        <span class="badge badge-teal" id="disp_ban"></span>
+        <span class="badge badge-gray" id="disp_group"></span>
+        <span class="badge" id="disp_type" style="display:none;background:#fff8e1;color:#f9a825;"></span>
+      </div>
+      <button class="btn btn-primary" id="submitBtn" onclick="submitSelections()" style="padding:10px 20px;font-size:14px;flex-shrink:0;">저장</button>
     </div>
+    <div id="submitMsg" class="msg"></div>
   </div>
 
   <div id="refundNotice" style="display:none;background:#fff;border:1px solid #e5e5e3;border-radius:14px;padding:1.125rem 1.375rem;margin-bottom:0.875rem;"></div>
@@ -652,6 +657,7 @@ function getFirstRound(name) {
 
 function renderNotice() {
   const el = document.getElementById("refundNotice");
+  const isSaTam = !!(student && student.탐구유형 && student.탐구유형.trim().includes("🟡"));
   if (!refundCutoff) { el.style.display = "none"; return; }
 
   const refundable = contents
@@ -738,8 +744,6 @@ function renderNotice() {
     return { cat, color, items };
   });
 
-  const isSaTam = student && student.탐구유형 && student.탐구유형.trim().includes("🟡");
-
   const allRows = rows.map(r => {
     const blocked = isSaTam && r.cat === "과학탐구";
     const content = blocked
@@ -760,10 +764,7 @@ function renderNotice() {
       </span>
     </div>
     <div>${allRows}</div>
-    <div style="margin-top:1rem;">
-      <button class="btn btn-primary btn-full" id="submitBtn" onclick="submitSelections()">선택 저장하기</button>
-      <div id="submitMsg" class="msg"></div>
-    </div>`;
+  `;
   el.style.display = "";
 }
 
