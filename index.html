@@ -406,6 +406,43 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
+/* ── 초기 콘텐츠 데이터 ── */
+const INITIAL_CONTENTS = [
+  { id: "ko_1", name: "강모K 국어",   category: "국어",   order: 1  },
+  { id: "ko_2", name: "이감",         category: "국어",   order: 2  },
+  { id: "ko_3", name: "CRUX 국어",    category: "국어",   order: 3  },
+  { id: "ko_4", name: "FF",           category: "국어",   order: 4  },
+  { id: "ma_1", name: "강모K 수학",   category: "수학",   order: 5  },
+  { id: "ma_2", name: "The Constant", category: "수학",   order: 6  },
+  { id: "ma_3", name: "CIRCUIT 수학", category: "수학",   order: 7  },
+  { id: "ma_4", name: "CRUX 수학",    category: "수학",   order: 8  },
+  { id: "ma_5", name: "CONNEX 수학",  category: "수학",   order: 9  },
+  { id: "ma_6", name: "강모X 수학",   category: "수학",   order: 10 },
+  { id: "en_1", name: "강모K 영어",   category: "영어",   order: 11 },
+  { id: "en_2", name: "CIRCUIT 영어", category: "영어",   order: 12 },
+  { id: "sc_1", name: "CIRCUIT 과학", category: "과학탐구", order: 13 },
+  { id: "sc_2", name: "CRUX 과학",    category: "과학탐구", order: 14 },
+];
+
+async function seedContentsIfEmpty() {
+  const snap = await db.collection("contents").limit(1).get();
+  if (!snap.empty) return; // 이미 데이터 있으면 스킵
+  const batch = db.batch();
+  INITIAL_CONTENTS.forEach(item => {
+    const ref = db.collection("contents").doc(item.id);
+    batch.set(ref, {
+      name:                item.name,
+      category:            item.category,
+      order:               item.order,
+      deliveryDate:        null,
+      refundAvailableFrom: null
+    });
+  });
+  await batch.commit();
+  console.log("초기 콘텐츠 설정 완료");
+}
+seedContentsIfEmpty();
+
 let student    = null;
 let contents   = [];
 let selections = {};
