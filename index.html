@@ -1059,85 +1059,72 @@ async function loadChanges() {
     return;
   }
 
-  // cutoffDate 별로 그룹핑
-  const periodGroups = {};
-  changed.forEach(s => {
-    const period = s.cutoffDate || "기준일 미설정";
-    if (!periodGroups[period]) periodGroups[period] = [];
-    periodGroups[period].push(s);
+  // 최근 제출 순 정렬
+  changed.sort((a, b) => {
+    const aT = a.updatedAt?.toDate?.() || new Date(0);
+    const bT = b.updatedAt?.toDate?.() || new Date(0);
+    return bT - aT;
   });
 
-  const periodsSorted = Object.keys(periodGroups).sort().reverse();
+  el.innerHTML = changed.map(s => {
+    const period = s.cutoffDate || "기준일 미설정";
 
-  el.innerHTML = periodsSorted.map(period => {
-    const students = periodGroups[period];
-    const periodLabel = period !== "기준일 미설정"
-      ? `${formatDateKR(period)} 기준 취소 신청`
-      : "기준일 미설정";
-
-    const cards = students.map(s => {
-      const cancelList = Object.entries(s.selections || {})
-        .map(([series, val]) => {
-          const item = seriesFirstMap[series];
-          const round = item ? getFirstRound(item.name) + "부터" : "";
-          const isCancel = val === "취소" || val === "환불";
-          const valColor = isCancel ? "#e5534b" : "#2BADA0";
-          const valText  = isCancel ? "취소" : "신청";
-          return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;padding:3px 0;">
-            <span style="font-weight:600;color:${valColor};min-width:28px;">[${valText}]</span>
-            <span>${series}</span>
-            ${round ? `<span style="color:#888;font-size:12px;">${round}</span>` : ""}
-          </div>`;
-        }).join("");
-
-      // processed를 시점별로 저장: processedByPeriod.{"2026-04-07": true}
-      const processedMap    = s.processedByPeriod || {};
-      const processed       = processedMap[period] || false;
-      const processedAt     = (s.processedAtByPeriod   && s.processedAtByPeriod[period])   || null;
-      const unprocessedAt   = (s.unprocessedAtByPeriod && s.unprocessedAtByPeriod[period]) || null;
-      const memo            = (s.memoByPeriod && s.memoByPeriod[period]) || "";
-
-      return `
-        <div style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-            <div style="flex:1;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-                <span style="font-size:15px;font-weight:700;color:${processed?'#aaa':'#1a1a1a'};">${s.studentName}</span>
-                <span style="font-size:12px;color:#888;">${s.반}반 · ${s.그룹}그룹</span>
-                <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
-                ${s.updatedAt ? `<span style="font-size:11px;color:#bbb;margin-left:4px;">· ${s.updatedAt.toDate ? s.updatedAt.toDate().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : ""}</span>` : ""}
-              </div>
-              ${cancelList}
-              <div style="margin-top:8px;">
-                <input type="text" placeholder="비고" value="${memo}"
-                  style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
-                  onchange="saveMemo('${s.docId}','${period}',this.value)" />
-              </div>
-            </div>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
-              <button onclick="toggleProcessed('${s.docId}','${period}',${!processed})"
-                style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;
-                  background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
-                ${processed ? '처리완료 ✓' : '미처리'}
-              </button>
-              ${processed && processedAt
-                ? `<div style="font-size:10px;color:#2BADA0;text-align:center;">처리: ${processedAt}</div>`
-                : ""}
-              ${!processed && unprocessedAt
-                ? `<div style="font-size:10px;color:#e5534b;text-align:center;">취소: ${unprocessedAt}</div>`
-                : ""}
-            </div>
-          </div>
+    // 해당 시점에 취소 가능했던 콘텐츠의 선택값만 표시
+    const changeList = Object.entries(s.selections || {})
+      .filter(([series]) => !!seriesFirstMap[series])
+      .map(([series, val]) => {
+        const item     = seriesFirstMap[series];
+        const round    = item ? getFirstRound(item.name) + "부터" : "";
+        const isCancel = val === "취소" || val === "환불";
+        const valColor = isCancel ? "#e5534b" : "#2BADA0";
+        const valText  = isCancel ? "취소" : "신청";
+        return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;padding:3px 0;">
+          <span style="font-weight:700;color:${valColor};min-width:30px;">[${valText}]</span>
+          <span>${series}</span>
+          ${round ? `<span style="color:#aaa;font-size:12px;">${round}</span>` : ""}
         </div>`;
-    }).join("");
+      }).join("");
+
+    const processedMap  = s.processedByPeriod    || {};
+    const processed     = processedMap[period]   || false;
+    const processedAt   = (s.processedAtByPeriod   && s.processedAtByPeriod[period])   || null;
+    const unprocessedAt = (s.unprocessedAtByPeriod && s.unprocessedAtByPeriod[period]) || null;
+    const memo          = (s.memoByPeriod && s.memoByPeriod[period]) || "";
+    const submittedAt   = s.updatedAt?.toDate
+      ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+      : "";
 
     return `
-      <div style="margin-bottom:1.5rem;">
-        <div style="font-size:13px;font-weight:700;color:#ED0081;padding:6px 0 8px;border-bottom:2px solid #ED0081;margin-bottom:10px;">${periodLabel}</div>
-        ${cards}
+      <div style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
+              <span style="font-size:15px;font-weight:700;color:${processed?'#aaa':'#1a1a1a'};">${s.studentName}</span>
+              <span style="font-size:12px;color:#888;">${s.반}반 · ${s.그룹}그룹</span>
+              <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
+            </div>
+            ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:8px;">신청/취소 시점: ${submittedAt}${period !== "기준일 미설정" ? " · 기준일 " + formatDateKR(period) : ""}</div>` : ""}
+            ${changeList}
+            <div style="margin-top:8px;">
+              <input type="text" placeholder="비고" value="${memo}"
+                style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
+                onchange="saveMemo('${s.docId}','${period}',this.value)" />
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
+            <button onclick="toggleProcessed('${s.docId}','${period}',${!processed})"
+              style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;
+                background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
+              ${processed ? '처리완료 ✓' : '미처리'}
+            </button>
+            ${processed && processedAt   ? `<div style="font-size:10px;color:#2BADA0;text-align:center;">처리: ${processedAt}</div>`   : ""}
+            ${!processed && unprocessedAt ? `<div style="font-size:10px;color:#e5534b;text-align:center;">취소: ${unprocessedAt}</div>` : ""}
+          </div>
+        </div>
       </div>`;
   }).join("");
 }
+
 
 async function toggleProcessed(docId, period, newVal) {
   const now = new Date().toLocaleString("ko-KR", {
