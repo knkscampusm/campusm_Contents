@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>의대관 콘텐츠 신청/환불</title>
+  <title>의대관 콘텐츠 신청/취소</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -310,14 +310,14 @@
 
   <div class="tabs">
     <div class="tab active" onclick="switchTab(0)">콘텐츠 관리</div>
-    <div class="tab" onclick="switchTab(1)">신청/환불 현황</div>
+    <div class="tab" onclick="switchTab(1)">신청/취소 현황</div>
   </div>
 
   <!-- 콘텐츠 관리 -->
   <div id="tab0" class="tab-pane active">
     <div class="card">
-      <div class="section-title">환불 기준일 설정</div>
-      <p style="font-size:13px;color:#888;margin-bottom:12px;">이 날짜 이후에 배부되는 콘텐츠만 환불 가능 상태로 표시됩니다.</p>
+      <div class="section-title">취소 기준일 설정</div>
+      <p style="font-size:13px;color:#888;margin-bottom:12px;">이 날짜 이후에 배부되는 콘텐츠만 취소 가능 상태로 표시됩니다.</p>
       <div class="row">
         <input type="date" id="cutoffDate" style="flex:1;" />
         <button class="btn btn-primary" onclick="saveCutoffDate()" style="padding:13px 20px;">저장</button>
@@ -362,7 +362,7 @@
     </div>
   </div>
 
-  <!-- 신청/환불 현황 -->
+  <!-- 신청/취소 현황 -->
   <div id="tab1" class="tab-pane">
     <div class="card">
       <div class="row sb" style="margin-bottom:1rem;">
@@ -561,7 +561,7 @@ seedContentsIfEmpty();
 let student      = null;
 let contents     = [];
 let selections   = {};
-let refundCutoff = null; // 관리자가 설정한 환불 기준일
+let refundCutoff = null; // 관리자가 설정한 취소 기준일
 
 /* ── UTILS ── */
 function toast(msg) {
@@ -601,8 +601,11 @@ async function lookupStudent() {
     document.getElementById("disp_ban").textContent   = student.반 + "반";
     document.getElementById("disp_group").textContent = student.그룹 + "그룹";
     const dispType = document.getElementById("disp_type");
-    if (student.탐구유형) { dispType.textContent = student.탐구유형; dispType.style.display = ""; }
-    else dispType.style.display = "none";
+    const typeLabel = { "🟡": "🟡 사탐+사탐", "🟢": "🟢 사탐+과탐", "🔵": "🔵 과탐+과탐" };
+    if (student.탐구유형 && typeLabel[student.탐구유형]) {
+      dispType.textContent = typeLabel[student.탐구유형];
+      dispType.style.display = "";
+    } else dispType.style.display = "none";
     document.getElementById("studentInfoCard").style.display = "";
 
     await loadContentsAndPrev();
@@ -713,14 +716,14 @@ function renderNotice() {
           <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:600;color:${canRefund?'#1a1a1a':'#bbb'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${series}</div>
             ${canRefund
-              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 환불 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
               : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`}
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
             <button
               ${canRefund
                 ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
-                : `disabled style="${disabledStyle}"`}>환불</button>
+                : `disabled style="${disabledStyle}"`}>취소</button>
             <button
               ${canRefund
                 ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
@@ -732,7 +735,7 @@ function renderNotice() {
     return { cat, color, items };
   });
 
-  const isSaTam = student && student.탐구유형 === "🟡사탐+사탐";
+  const isSaTam = student && student.탐구유형 === "🟡";
 
   const allRows = rows.map(r => {
     const blocked = isSaTam && r.cat === "과학탐구";
@@ -750,7 +753,7 @@ function renderNotice() {
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
       <div style="width:8px;height:8px;border-radius:50%;background:#2BADA0;flex-shrink:0;"></div>
       <span style="font-size:13px;font-weight:600;color:#2BADA0;">
-        ${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/환불 가능합니다
+        ${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다
       </span>
     </div>
     <div>${allRows}</div>
@@ -983,7 +986,7 @@ async function loadSubmissions() {
       <td>${s.studentId}</td><td>${s.studentName}</td><td>${s.반}</td><td>${s.그룹}</td>
       ${cols.map(c => {
         const v = s.selections?.[c.id];
-        if (v === "환불") return `<td class="tag-r">환불</td>`;
+        if (v === "환불") return `<td class="tag-r">취소</td>`;
         if (v === "신청") return `<td class="tag-a">신청</td>`;
         return `<td style="color:#ddd;">-</td>`;
       }).join("")}
@@ -1007,8 +1010,8 @@ async function exportExcel() {
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "신청환불현황");
-  XLSX.writeFile(wb, `QUETTA_신청환불_${today()}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, ws, "신청취소현황");
+  XLSX.writeFile(wb, `QUETTA_신청취소_${today()}.xlsx`);
 }
 
 /* ── TABS ── */
