@@ -735,7 +735,7 @@ function renderNotice() {
     return { cat, color, items };
   });
 
-  const isSaTam = student && student.탐구유형 === "🟡";
+  const isSaTam = student && student.탐구유형 && student.탐구유형.trim().includes("🟡");
 
   const allRows = rows.map(r => {
     const blocked = isSaTam && r.cat === "과학탐구";
