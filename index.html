@@ -286,6 +286,7 @@
       <span class="student-name" id="disp_name"></span>
       <span class="badge badge-teal" id="disp_ban"></span>
       <span class="badge badge-gray" id="disp_group"></span>
+      <span class="badge" id="disp_type" style="display:none;background:#fff8e1;color:#f9a825;"></span>
     </div>
   </div>
 
@@ -593,12 +594,15 @@ async function lookupStudent() {
     if (!doc.exists) { setMsg("lookupMsg", "해당 학번을 찾을 수 없습니다.", "error"); return; }
 
     const data = doc.data();
-    student = { id: sid, name: data.이름, 반: data.반, 그룹: data.그룹 };
+    student = { id: sid, name: data.이름, 반: data.반, 그룹: data.그룹, 탐구유형: data.탐구유형 || "" };
     setMsg("lookupMsg", "");
 
     document.getElementById("disp_name").textContent  = student.name;
     document.getElementById("disp_ban").textContent   = student.반 + "반";
     document.getElementById("disp_group").textContent = student.그룹 + "그룹";
+    const dispType = document.getElementById("disp_type");
+    if (student.탐구유형) { dispType.textContent = student.탐구유형; dispType.style.display = ""; }
+    else dispType.style.display = "none";
     document.getElementById("studentInfoCard").style.display = "";
 
     await loadContentsAndPrev();
@@ -728,11 +732,19 @@ function renderNotice() {
     return { cat, color, items };
   });
 
-  const allRows = rows.map(r => `
-    <div style="margin-bottom:1.25rem;">
-      <div style="font-size:12px;font-weight:700;color:${catColors[r.cat]||'#888'};letter-spacing:0.05em;padding:4px 0 6px;border-bottom:2px solid ${catColors[r.cat]||'#888'};margin-bottom:6px;">${r.cat}</div>
-      ${r.items}
-    </div>`).join("");
+  const isSaTam = student && student.탐구유형 === "🟡사탐+사탐";
+
+  const allRows = rows.map(r => {
+    const blocked = isSaTam && r.cat === "과학탐구";
+    const content = blocked
+      ? `<div style="padding:14px 8px;text-align:center;font-size:14px;color:#bbb;background:#f8f8f6;border-radius:10px;">해당없음</div>`
+      : r.items;
+    return `
+      <div style="margin-bottom:1.25rem;">
+        <div style="font-size:12px;font-weight:700;color:${catColors[r.cat]||'#888'};letter-spacing:0.05em;padding:4px 0 6px;border-bottom:2px solid ${catColors[r.cat]||'#888'};margin-bottom:6px;">${r.cat}</div>
+        ${content}
+      </div>`;
+  }).join("");
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
