@@ -650,31 +650,58 @@ function renderNotice() {
     }
   });
 
-  const rows = Array.from(allSeriesMap.entries()).map(([series, { firstRefundable, hasAnyItem }]) => {
-    const canRefund = !!firstRefundable;
-    if (!selections[series]) selections[series] = "신청";
-    const sel = selections[series];
+  // 카테고리 순서 정의
+  const CAT_ORDER = ["국어", "수학", "영어", "과학탐구"];
+  const catColors = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
 
-    const disabledStyle = "opacity:0.3;cursor:not-allowed;padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;border:1.5px solid #e0e0e0;background:#fafafa;color:#ccc;";
+  // 시리즈에 카테고리 정보 추가
+  const seriesCategory = new Map();
+  contents.forEach(item => {
+    const series = getSeriesName(item.name);
+    if (!seriesCategory.has(series)) seriesCategory.set(series, item.category || "기타");
+  });
+
+  // 카테고리별로 그룹핑
+  const catGroups = {};
+  allSeriesMap.forEach(({ firstRefundable, hasAnyItem }, series) => {
+    const cat = seriesCategory.get(series) || "기타";
+    if (!catGroups[cat]) catGroups[cat] = [];
+    catGroups[cat].push({ series, firstRefundable, hasAnyItem });
+  });
+
+  const disabledStyle = "opacity:0.3;cursor:not-allowed;padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;border:1.5px solid #e0e0e0;background:#fafafa;color:#ccc;";
+
+  const rows = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
+    const color = catColors[cat] || "#888";
+    const items = catGroups[cat].map(({ series, firstRefundable }) => {
+      const canRefund = !!firstRefundable;
+      if (!selections[series]) selections[series] = "신청";
+      const sel = selections[series];
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:600;color:${canRefund?'#1a1a1a':'#bbb'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${series}</div>
+            ${canRefund
+              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 환불 가능</div>`
+              : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`}
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0;">
+            <button
+              ${canRefund
+                ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
+                : `disabled style="${disabledStyle}"`}>환불</button>
+            <button
+              ${canRefund
+                ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
+                : `disabled style="${disabledStyle}"`}>신청</button>
+          </div>
+        </div>`;
+    }).join("");
 
     return `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0ee;gap:8px;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:600;color:${canRefund?'#1a1a1a':'#bbb'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${series}</div>
-          ${canRefund
-            ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 환불 가능</div>`
-            : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`}
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          <button
-            ${canRefund
-              ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
-              : `disabled style="${disabledStyle}"`}>환불</button>
-          <button
-            ${canRefund
-              ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
-              : `disabled style="${disabledStyle}"`}>신청</button>
-        </div>
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:12px;font-weight:700;color:${color};letter-spacing:0.05em;padding:6px 0 4px;border-bottom:2px solid ${color};margin-bottom:4px;">${cat}</div>
+        ${items}
       </div>`;
   }).join("");
 
@@ -694,46 +721,7 @@ function renderNotice() {
 }
 
 function renderContents() {
-  const t    = today();
-  const list = document.getElementById("contentList");
-
-  if (!contents.length) {
-    list.innerHTML = '<div class="card empty">등록된 콘텐츠가 없습니다.</div>';
-    document.getElementById("contentsSection").style.display = "";
-    return;
-  }
-
-  list.innerHTML = contents.map(c => {
-    // 배부일이 기준일보다 미래인 경우만 환불 가능 (아직 배부 안 됨)
-    const refundOk = refundCutoff && c.deliveryDate && c.deliveryDate > refundCutoff;
-    if (!selections[c.id]) selections[c.id] = "신청";
-    const sel = selections[c.id];
-
-    return `
-      <div class="content-card">
-        <div class="content-top">
-          <div>
-            <div class="content-name">${c.name}</div>
-            <div class="content-dates">
-              ${c.deliveryDate ? "배부일 " + c.deliveryDate : ""}
-            </div>
-          </div>
-          ${refundCutoff && c.deliveryDate ? `
-            <div class="refund-tag ${refundOk ? "refund-on" : "refund-off"}">
-              ${refundOk ? "환불 가능" : "배부 완료"}
-            </div>` : ""}
-        </div>
-        <div class="sel-row">
-          <button class="sel-btn ${sel === "환불" ? "sel-refund" : ""}"
-            onclick="pick('${c.id}','환불',this)"
-            ${!refundOk ? "disabled" : ""}>환불</button>
-          <button class="sel-btn ${sel === "신청" ? "sel-apply" : ""}"
-            onclick="pick('${c.id}','신청',this)">신청</button>
-        </div>
-      </div>`;
-  }).join("");
-
-  document.getElementById("contentsSection").style.display = "";
+  // 개별 카드 사용 안 함 — renderNotice에서 처리
 }
 
 function pick(cid, val, btn) {
