@@ -1043,14 +1043,19 @@ async function loadChanges() {
 
   let changed = sSnap.docs
     .map(d => ({ docId: d.id, ...d.data() }))
-    .filter(s => s.selections && Object.values(s.selections).some(v => v === "취소" || v === "환불"))
+    .filter(s => s.selections && Object.keys(s.selections).length > 0)
     .sort((a,b) => (a.반||0) - (b.반||0));
 
-  // 미처리만 보기 필터
-  if (_showOnlyUnprocessed) changed = changed.filter(s => !s.processed);
+  // 미처리만 보기 필터 (해당 시점 기준)
+  if (_showOnlyUnprocessed) {
+    changed = changed.filter(s => {
+      const period = s.cutoffDate || "기준일 미설정";
+      return !(s.processedByPeriod && s.processedByPeriod[period]);
+    });
+  }
 
   if (!changed.length) {
-    el.innerHTML = `<div class="empty">${_showOnlyUnprocessed ? "미처리 내역이 없습니다 🎉" : "취소 선택 내역이 없습니다"}</div>`;
+    el.innerHTML = `<div class="empty">${_showOnlyUnprocessed ? "미처리 내역이 없습니다 🎉" : "변경 내역이 없습니다"}</div>`;
     return;
   }
 
@@ -1072,12 +1077,16 @@ async function loadChanges() {
 
     const cards = students.map(s => {
       const cancelList = Object.entries(s.selections || {})
-        .filter(([, v]) => v === "취소" || v === "환불")
-        .map(([series]) => {
+        .map(([series, val]) => {
           const item = seriesFirstMap[series];
           const round = item ? getFirstRound(item.name) + "부터" : "";
-          return `<div style="font-size:13px;color:#555;padding:3px 0;">
-            · ${series} ${round ? `<span style="color:#e5534b;font-weight:600;">${round}</span>` : ""}
+          const isCancel = val === "취소" || val === "환불";
+          const valColor = isCancel ? "#e5534b" : "#2BADA0";
+          const valText  = isCancel ? "취소" : "신청";
+          return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;padding:3px 0;">
+            <span style="font-weight:600;color:${valColor};min-width:28px;">[${valText}]</span>
+            <span>${series}</span>
+            ${round ? `<span style="color:#888;font-size:12px;">${round}</span>` : ""}
           </div>`;
         }).join("");
 
@@ -1158,6 +1167,7 @@ async function exportExcel() {
 function switchTab(idx) {
   document.querySelectorAll(".tab").forEach((t,i) => t.classList.toggle("active", i === idx));
   document.querySelectorAll(".tab-pane").forEach((p,i) => p.classList.toggle("active", i === idx));
+  localStorage.setItem("adminTab", idx);
   if (idx === 1) loadSubmissions();
   if (idx === 2) loadChanges();
 }
@@ -1167,9 +1177,10 @@ auth.onAuthStateChanged(user => {
   if (user) {
     document.getElementById("studentView").style.display = "none";
     document.getElementById("adminView").style.display   = "";
+    const savedTab = parseInt(localStorage.getItem("adminTab") || "0");
+    switchTab(savedTab);
     loadCutoffDate();
     loadAdminContents();
-    loadSubmissions();
   } else {
     document.getElementById("adminView").style.display   = "none";
     document.getElementById("studentView").style.display = "";
