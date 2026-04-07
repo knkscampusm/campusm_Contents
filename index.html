@@ -636,49 +636,44 @@ function renderNotice() {
 
   if (!refundable.length) { el.style.display = "none"; return; }
 
-  // 시리즈별 첫 번째 환불 가능 회차만 추출
-  const seriesMap = new Map();
-  refundable.forEach(item => {
-    const series = getSeriesName(item.name);
-    if (!seriesMap.has(series)) seriesMap.set(series, item);
-  });
-
-  // 전체 시리즈 목록 (환불 가능 여부 포함)
+  // 전체 시리즈 목록 구성 — 미래 배부 항목이 하나라도 있으면 환불 가능
   const allSeriesMap = new Map();
   contents.sort((a,b) => a.order - b.order).forEach(item => {
     const series = getSeriesName(item.name);
     if (!allSeriesMap.has(series)) {
-      const refundable = item.deliveryDate && item.deliveryDate > refundCutoff;
-      allSeriesMap.set(series, { item, refundable });
+      allSeriesMap.set(series, { firstRefundable: null, hasAnyItem: false });
+    }
+    const entry = allSeriesMap.get(series);
+    entry.hasAnyItem = true;
+    if (item.deliveryDate && item.deliveryDate > refundCutoff && !entry.firstRefundable) {
+      entry.firstRefundable = item;
     }
   });
 
-  const rows = Array.from(allSeriesMap.entries()).map(([series, { item, refundable }]) => {
-    const key = series;
-    if (!selections[key]) selections[key] = "신청";
-    const sel = selections[key];
+  const rows = Array.from(allSeriesMap.entries()).map(([series, { firstRefundable, hasAnyItem }]) => {
+    const canRefund = !!firstRefundable;
+    if (!selections[series]) selections[series] = "신청";
+    const sel = selections[series];
+
+    const disabledStyle = "opacity:0.3;cursor:not-allowed;padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;border:1.5px solid #e0e0e0;background:#fafafa;color:#ccc;";
+
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0ee;gap:8px;">
         <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:600;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${series}</div>
-          ${refundable
-            ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(item.name)}부터 환불 가능</div>`
-            : `<div style="font-size:11px;color:#aaa;margin-top:2px;">배부 완료</div>`}
+          <div style="font-size:14px;font-weight:600;color:${canRefund?'#1a1a1a':'#bbb'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${series}</div>
+          ${canRefund
+            ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 환불 가능</div>`
+            : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`}
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
           <button
-            style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s;
-              border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};
-              background:${sel==='환불'?'#fef3f2':'#fafafa'};
-              color:${sel==='환불'?'#e5534b':'#aaa'};"
-            onclick="pickSeries('${series}','환불')"
-            ${!refundable ? 'disabled style="opacity:0.3;cursor:not-allowed;padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;border:1.5px solid #e0e0e0;background:#fafafa;color:#ccc;"' : ''}>환불</button>
+            ${canRefund
+              ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
+              : `disabled style="${disabledStyle}"`}>환불</button>
           <button
-            style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s;
-              border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};
-              background:${sel==='신청'?'#e4f5f3':'#fafafa'};
-              color:${sel==='신청'?'#2BADA0':'#aaa'};"
-            onclick="pickSeries('${series}','신청')">신청</button>
+            ${canRefund
+              ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
+              : `disabled style="${disabledStyle}"`}>신청</button>
         </div>
       </div>`;
   }).join("");
