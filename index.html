@@ -1091,9 +1091,11 @@ async function loadChanges() {
         }).join("");
 
       // processed를 시점별로 저장: processedByPeriod.{"2026-04-07": true}
-      const processedMap = s.processedByPeriod || {};
-      const processed    = processedMap[period] || false;
-      const memo         = (s.memoByPeriod && s.memoByPeriod[period]) || "";
+      const processedMap    = s.processedByPeriod || {};
+      const processed       = processedMap[period] || false;
+      const processedAt     = (s.processedAtByPeriod   && s.processedAtByPeriod[period])   || null;
+      const unprocessedAt   = (s.unprocessedAtByPeriod && s.unprocessedAtByPeriod[period]) || null;
+      const memo            = (s.memoByPeriod && s.memoByPeriod[period]) || "";
 
       return `
         <div style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
@@ -1112,11 +1114,19 @@ async function loadChanges() {
                   onchange="saveMemo('${s.docId}','${period}',this.value)" />
               </div>
             </div>
-            <button onclick="toggleProcessed('${s.docId}','${period}',${!processed})"
-              style="flex-shrink:0;padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;
-                background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
-              ${processed ? '처리완료 ✓' : '미처리'}
-            </button>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
+              <button onclick="toggleProcessed('${s.docId}','${period}',${!processed})"
+                style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;
+                  background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
+                ${processed ? '처리완료 ✓' : '미처리'}
+              </button>
+              ${processed && processedAt
+                ? `<div style="font-size:10px;color:#2BADA0;text-align:center;">처리: ${processedAt}</div>`
+                : ""}
+              ${!processed && unprocessedAt
+                ? `<div style="font-size:10px;color:#e5534b;text-align:center;">취소: ${unprocessedAt}</div>`
+                : ""}
+            </div>
           </div>
         </div>`;
     }).join("");
@@ -1130,9 +1140,20 @@ async function loadChanges() {
 }
 
 async function toggleProcessed(docId, period, newVal) {
-  await db.collection("submissions").doc(docId).update({
-    [`processedByPeriod.${period}`]: newVal
+  const now = new Date().toLocaleString("ko-KR", {
+    month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit"
   });
+  const updates = {
+    [`processedByPeriod.${period}`]: newVal
+  };
+  if (newVal) {
+    updates[`processedAtByPeriod.${period}`]   = now;
+    updates[`unprocessedAtByPeriod.${period}`] = null;
+  } else {
+    updates[`unprocessedAtByPeriod.${period}`] = now;
+    updates[`processedAtByPeriod.${period}`]   = null;
+  }
+  await db.collection("submissions").doc(docId).update(updates);
   loadChanges();
 }
 
