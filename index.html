@@ -399,8 +399,19 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "19313028773",
   appId:             "1:19313028773:web:023ec211a18b826f0fa74c"
 };
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwyFysrxLhMn2c5gYsRdtRn-K42SwKI2vR55cAo3XhQ8IiZL2NqfGkJV0GrATIi390r/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzWI6qxpyp3X9Xl3WthMPQLPdbQYiy81bJZYXV7ky8_tJSqO7icsxhNYAUm6ZUBHrZO/exec";
 const TOKEN      = "campusm";
+
+function jsonp(url) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Date.now();
+    const script = document.createElement('script');
+    window[cb] = (data) => { delete window[cb]; document.body.removeChild(script); resolve(data); };
+    script.onerror = () => { delete window[cb]; document.body.removeChild(script); reject(new Error('JSONP error')); };
+    script.src = url + '&callback=' + cb;
+    document.body.appendChild(script);
+  });
+}
 /* ════════════════════════════════════════ */
 
 firebase.initializeApp(FIREBASE_CONFIG);
@@ -437,8 +448,7 @@ async function lookupStudent() {
   setMsg("lookupMsg", "조회 중...", "loading");
 
   try {
-    const res  = await fetch(`${SCRIPT_URL}?token=${TOKEN}&id=${encodeURIComponent(sid)}`, { redirect: "follow" });
-    const data = JSON.parse(await res.text());
+    const data = await jsonp(`${SCRIPT_URL}?token=${TOKEN}&id=${encodeURIComponent(sid)}`);
 
     if (data.error) { setMsg("lookupMsg", "인증 오류가 발생했습니다.", "error"); return; }
     if (!data.found) { setMsg("lookupMsg", "해당 학번을 찾을 수 없습니다.", "error"); return; }
