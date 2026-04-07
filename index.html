@@ -399,34 +399,7 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "19313028773",
   appId:             "1:19313028773:web:023ec211a18b826f0fa74c"
 };
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzWI6qxpyp3X9Xl3WthMPQLPdbQYiy81bJZYXV7ky8_tJSqO7icsxhNYAUm6ZUBHrZO/exec";
-const TOKEN      = "campusm";
-
-function jsonp(url) {
-  return new Promise((resolve, reject) => {
-    const cb = 'cb_' + Date.now();
-    const script = document.createElement('script');
-    const timer = setTimeout(() => {
-      delete window[cb];
-      if (document.body.contains(script)) document.body.removeChild(script);
-      reject(new Error('timeout'));
-    }, 10000);
-    window[cb] = (data) => {
-      clearTimeout(timer);
-      delete window[cb];
-      if (document.body.contains(script)) document.body.removeChild(script);
-      resolve(data);
-    };
-    script.onerror = () => {
-      clearTimeout(timer);
-      delete window[cb];
-      if (document.body.contains(script)) document.body.removeChild(script);
-      reject(new Error('script error'));
-    };
-    script.src = url + '&callback=' + cb;
-    document.body.appendChild(script);
-  });
-}
+// Apps Script 불필요 — Firestore 직접 조회
 /* ════════════════════════════════════════ */
 
 firebase.initializeApp(FIREBASE_CONFIG);
@@ -463,11 +436,11 @@ async function lookupStudent() {
   setMsg("lookupMsg", "조회 중...", "loading");
 
   try {
-    const data = await jsonp(`${SCRIPT_URL}?token=${TOKEN}&id=${encodeURIComponent(sid)}`);
+    const doc = await db.collection("students").doc(sid).get();
 
-    if (data.error) { setMsg("lookupMsg", "인증 오류가 발생했습니다.", "error"); return; }
-    if (!data.found) { setMsg("lookupMsg", "해당 학번을 찾을 수 없습니다.", "error"); return; }
+    if (!doc.exists) { setMsg("lookupMsg", "해당 학번을 찾을 수 없습니다.", "error"); return; }
 
+    const data = doc.data();
     student = { id: sid, name: data.이름, 반: data.반, 그룹: data.그룹 };
     setMsg("lookupMsg", "");
 
@@ -479,7 +452,7 @@ async function lookupStudent() {
     await loadContentsAndPrev();
     renderContents();
   } catch(err) {
-    setMsg("lookupMsg", "서버 연결에 실패했습니다. (" + err.message + ")", "error");
+    setMsg("lookupMsg", "조회 실패: " + err.message, "error");
   } finally {
     btn.disabled = false;
   }
