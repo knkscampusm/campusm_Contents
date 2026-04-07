@@ -646,8 +646,11 @@ function renderNotice() {
     }
     const entry = allSeriesMap.get(series);
     entry.hasAnyItem = true;
-    if (item.deliveryDate && item.deliveryDate > refundCutoff && !entry.firstRefundable) {
-      entry.firstRefundable = item;
+    // 배부일이 가장 빠른 환불 가능 항목을 firstRefundable로
+    if (item.deliveryDate && item.deliveryDate > refundCutoff) {
+      if (!entry.firstRefundable || item.deliveryDate < entry.firstRefundable.deliveryDate) {
+        entry.firstRefundable = item;
+      }
     }
   });
 
@@ -674,10 +677,12 @@ function renderNotice() {
 
   const rows = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
     const color = catColors[cat] || "#888";
-    // 환불 가능한 것 먼저, 배부 완료는 아래로
+    // 다음 배부일 빠른 순 정렬, 배부 완료는 아래로
     const sorted = [...catGroups[cat]].sort((a, b) => {
-      if (!!a.firstRefundable === !!b.firstRefundable) return 0;
-      return a.firstRefundable ? -1 : 1;
+      if (!a.firstRefundable && !b.firstRefundable) return 0;
+      if (!a.firstRefundable) return 1;
+      if (!b.firstRefundable) return -1;
+      return a.firstRefundable.deliveryDate.localeCompare(b.firstRefundable.deliveryDate);
     });
     const items = sorted.map(({ series, firstRefundable }) => {
       const canRefund = !!firstRefundable;
