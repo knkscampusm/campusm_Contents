@@ -728,44 +728,25 @@ function renderNotice() {
     return { cat, color, items };
   });
 
-  // 첫 번째 활성 탭 결정
-  if (!window._activeNoticeCat || !catGroups[window._activeNoticeCat]) {
-    window._activeNoticeCat = CAT_ORDER.find(cat => catGroups[cat]) || CAT_ORDER[0];
-  }
-  const activeCat = window._activeNoticeCat;
-
-  const tabBtns = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
-    const color = catColors[cat] || "#888";
-    const isActive = cat === activeCat;
-    return `<button onclick="switchNoticeCat('${cat}')" style="
-      padding:8px 14px;font-size:13px;font-weight:${isActive?'700':'500'};
-      border-radius:20px;border:1.5px solid ${isActive?color:'#e0e0e0'};
-      background:${isActive?color:'#fff'};color:${isActive?'#fff':'#aaa'};
-      cursor:pointer;transition:all 0.15s;white-space:nowrap;">${cat}</button>`;
-  }).join("");
-
-  const activeData = rows.find(r => r.cat === activeCat);
-  const activeItems = activeData ? activeData.items : "";
+  const allRows = rows.map(r => `
+    <div style="margin-bottom:1.25rem;">
+      <div style="font-size:12px;font-weight:700;color:${catColors[r.cat]||'#888'};letter-spacing:0.05em;padding:4px 0 6px;border-bottom:2px solid ${catColors[r.cat]||'#888'};margin-bottom:6px;">${r.cat}</div>
+      ${r.items}
+    </div>`).join("");
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
       <div style="width:8px;height:8px;border-radius:50%;background:#2BADA0;flex-shrink:0;"></div>
       <span style="font-size:13px;font-weight:600;color:#2BADA0;">
         ${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/환불 가능합니다
       </span>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">${tabBtns}</div>
-    <div id="noticeCatContent">${activeItems}</div>
+    <div>${allRows}</div>
     <div style="margin-top:1rem;">
       <button class="btn btn-primary btn-full" id="submitBtn" onclick="submitSelections()">선택 저장하기</button>
       <div id="submitMsg" class="msg"></div>
     </div>`;
   el.style.display = "";
-}
-
-function switchNoticeCat(cat) {
-  window._activeNoticeCat = cat;
-  renderNotice();
 }
 
 function renderContents() {
@@ -783,7 +764,19 @@ function pick(cid, val, btn) {
 
 function pickSeries(series, val) {
   selections[series] = val;
-  renderNotice(); // 버튼 상태 즉시 갱신
+  renderNotice();
+}
+
+function resetStudentView() {
+  student      = null;
+  contents     = [];
+  selections   = {};
+  refundCutoff = null;
+  document.getElementById("sidInput").value                = "";
+  document.getElementById("studentInfoCard").style.display = "none";
+  document.getElementById("refundNotice").style.display    = "none";
+  document.getElementById("contentsSection").style.display = "none";
+  setMsg("lookupMsg", "");
 }
 
 /* ── STUDENT: submit ── */
@@ -799,8 +792,8 @@ async function submitSelections() {
       selections,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    setMsg("submitMsg", "");
     toast("✓ 저장되었습니다");
+    setTimeout(() => resetStudentView(), 1500);
   } catch {
     setMsg("submitMsg", "저장에 실패했습니다. 다시 시도해주세요.", "error");
   } finally {
