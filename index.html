@@ -525,16 +525,19 @@ const INITIAL_CONTENTS = [
 ];
 
 async function seedContentsIfEmpty() {
-  const snap = await db.collection("contents").limit(1).get();
-  if (!snap.empty) return;
+  // 이미 새 데이터(ko_crux_1)가 있으면 스킵
+  const check = await db.collection("contents").doc("ko_crux_1").get();
+  if (check.exists) return;
+
+  // 500개 이하라 단일 배치로 처리
   const batch = db.batch();
   INITIAL_CONTENTS.forEach(item => {
     const ref = db.collection("contents").doc(item.id);
     batch.set(ref, {
-      name:                item.name,
-      category:            item.category,
-      order:               item.order,
-      deliveryDate:        item.deliveryDate || null,
+      name:     item.name,
+      category: item.category,
+      order:    item.order,
+      deliveryDate: item.deliveryDate || null,
       refundAvailableFrom: null
     });
   });
@@ -809,21 +812,32 @@ async function loadAdminContents() {
   const snap = await db.collection("contents").orderBy("order").get();
   const el   = document.getElementById("adminContentList");
   if (snap.empty) { el.innerHTML = '<div class="empty">등록된 콘텐츠가 없습니다</div>'; return; }
-  el.innerHTML = snap.docs.map(d => {
-    const c = d.data();
-    return `
-      <div class="cl-item">
-        <div class="cl-info">
-          <div class="cl-name">${c.name}</div>
-          <div class="cl-dates">
-            ${c.deliveryDate ? "배부일 " + c.deliveryDate : ""}
-            ${c.deliveryDate && c.refundAvailableFrom ? " · " : ""}
-            ${c.refundAvailableFrom ? "환불 시작 " + c.refundAvailableFrom : ""}
+
+  // 카테고리별 그룹핑
+  const grouped = {};
+  snap.docs.forEach(d => {
+    const data = d.data();
+    const cat = data.category || "기타";
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push({ id: d.id, ...data });
+  });
+
+  const catColors = { "국어": "#e4f5f3", "수학": "#e8f0fe", "영어": "#fff3e0", "과학탐구": "#f3e5f5" };
+  const catText   = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
+
+  el.innerHTML = Object.entries(grouped).map(([cat, items]) => `
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;display:inline-block;
+        background:${catColors[cat]||'#f0f0ee'};color:${catText[cat]||'#666'};margin-bottom:8px;">${cat}</div>
+      ${items.map(item => `
+        <div class="cl-item">
+          <div class="cl-info">
+            <div class="cl-name">${item.name}</div>
+            <div class="cl-dates">${item.deliveryDate ? "배부일 " + item.deliveryDate : "배부일 미설정"}</div>
           </div>
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="deleteContent('${d.id}')">삭제</button>
-      </div>`;
-  }).join("");
+          <button class="btn btn-danger btn-sm" onclick="deleteContent('${item.id}')">삭제</button>
+        </div>`).join("")}
+    </div>`).join("");
 }
 
 /* ── ADMIN: submissions ── */
