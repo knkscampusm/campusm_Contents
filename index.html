@@ -819,6 +819,7 @@ async function submitSelections() {
       studentId: student.id, studentName: student.name,
       반: student.반, 그룹: student.그룹,
       selections,
+      cutoffDate: refundCutoff || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     toast("✓ 저장되었습니다");
@@ -1053,53 +1054,83 @@ async function loadChanges() {
     return;
   }
 
-  el.innerHTML = changed.map(s => {
-    const cancelList = Object.entries(s.selections || {})
-      .filter(([, v]) => v === "취소" || v === "환불")
-      .map(([series]) => {
-        const item = seriesFirstMap[series];
-        const round = item ? getFirstRound(item.name) + "부터" : "";
-        return `<div style="font-size:13px;color:#555;padding:3px 0;">
-          · ${series} ${round ? `<span style="color:#e5534b;font-weight:600;">${round}</span>` : ""}
-        </div>`;
-      }).join("");
+  // cutoffDate 별로 그룹핑
+  const periodGroups = {};
+  changed.forEach(s => {
+    const period = s.cutoffDate || "기준일 미설정";
+    if (!periodGroups[period]) periodGroups[period] = [];
+    periodGroups[period].push(s);
+  });
 
-    const processed = s.processed || false;
-    const memo      = s.memo || "";
-    return `
-      <div style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
-          <div style="flex:1;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-              <span style="font-size:15px;font-weight:700;color:${processed?'#aaa':'#1a1a1a'};">${s.studentName}</span>
-              <span style="font-size:12px;color:#888;">${s.반}반 · ${s.그룹}그룹</span>
-              <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
-              ${s.updatedAt ? `<span style="font-size:11px;color:#bbb;margin-left:4px;">· ${s.updatedAt.toDate ? s.updatedAt.toDate().toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : ""}</span>` : ""}
+  const periodsSorted = Object.keys(periodGroups).sort().reverse();
+
+  el.innerHTML = periodsSorted.map(period => {
+    const students = periodGroups[period];
+    const periodLabel = period !== "기준일 미설정"
+      ? `${formatDateKR(period)} 기준 취소 신청`
+      : "기준일 미설정";
+
+    const cards = students.map(s => {
+      const cancelList = Object.entries(s.selections || {})
+        .filter(([, v]) => v === "취소" || v === "환불")
+        .map(([series]) => {
+          const item = seriesFirstMap[series];
+          const round = item ? getFirstRound(item.name) + "부터" : "";
+          return `<div style="font-size:13px;color:#555;padding:3px 0;">
+            · ${series} ${round ? `<span style="color:#e5534b;font-weight:600;">${round}</span>` : ""}
+          </div>`;
+        }).join("");
+
+      // processed를 시점별로 저장: processedByPeriod.{"2026-04-07": true}
+      const processedMap = s.processedByPeriod || {};
+      const processed    = processedMap[period] || false;
+      const memo         = (s.memoByPeriod && s.memoByPeriod[period]) || "";
+
+      return `
+        <div style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                <span style="font-size:15px;font-weight:700;color:${processed?'#aaa':'#1a1a1a'};">${s.studentName}</span>
+                <span style="font-size:12px;color:#888;">${s.반}반 · ${s.그룹}그룹</span>
+                <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
+                ${s.updatedAt ? `<span style="font-size:11px;color:#bbb;margin-left:4px;">· ${s.updatedAt.toDate ? s.updatedAt.toDate().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : ""}</span>` : ""}
+              </div>
+              ${cancelList}
+              <div style="margin-top:8px;">
+                <input type="text" placeholder="비고" value="${memo}"
+                  style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
+                  onchange="saveMemo('${s.docId}','${period}',this.value)" />
+              </div>
             </div>
-            ${cancelList}
-            <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
-              <input type="text" placeholder="비고" value="${memo}"
-                style="flex:1;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
-                onchange="saveMemo('${s.docId}', this.value)" />
-            </div>
+            <button onclick="toggleProcessed('${s.docId}','${period}',${!processed})"
+              style="flex-shrink:0;padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;
+                background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
+              ${processed ? '처리완료 ✓' : '미처리'}
+            </button>
           </div>
-          <button onclick="toggleProcessed('${s.docId}', ${!processed})"
-            style="flex-shrink:0;padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;
-              background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
-            ${processed ? '처리완료 ✓' : '미처리'}
-          </button>
-        </div>
+        </div>`;
+    }).join("");
+
+    return `
+      <div style="margin-bottom:1.5rem;">
+        <div style="font-size:13px;font-weight:700;color:#ED0081;padding:6px 0 8px;border-bottom:2px solid #ED0081;margin-bottom:10px;">${periodLabel}</div>
+        ${cards}
       </div>`;
   }).join("");
 }
 
-async function toggleProcessed(docId, newVal) {
-  await db.collection("submissions").doc(docId).update({ processed: newVal });
+async function toggleProcessed(docId, period, newVal) {
+  await db.collection("submissions").doc(docId).update({
+    [`processedByPeriod.${period}`]: newVal
+  });
   loadChanges();
 }
 
-async function saveMemo(docId, memo) {
-  await db.collection("submissions").doc(docId).update({ memo });
+async function saveMemo(docId, period, memo) {
+  await db.collection("submissions").doc(docId).update({
+    [`memoByPeriod.${period}`]: memo
+  });
 }
 
 /* ── ADMIN: excel ── */
@@ -1130,6 +1161,20 @@ function switchTab(idx) {
   if (idx === 1) loadSubmissions();
   if (idx === 2) loadChanges();
 }
+
+/* ── AUTH 상태 유지 (F5 후 관리자 유지) ── */
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById("studentView").style.display = "none";
+    document.getElementById("adminView").style.display   = "";
+    loadCutoffDate();
+    loadAdminContents();
+    loadSubmissions();
+  } else {
+    document.getElementById("adminView").style.display   = "none";
+    document.getElementById("studentView").style.display = "";
+  }
+});
 
 /* ── KEYBOARD ── */
 document.getElementById("sidInput").addEventListener("keydown", e => { if (e.key === "Enter") lookupStudent(); });
