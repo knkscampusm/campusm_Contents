@@ -1070,10 +1070,11 @@ async function loadChanges() {
       <div style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
           <div style="flex:1;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
               <span style="font-size:15px;font-weight:700;color:${processed?'#aaa':'#1a1a1a'};">${s.studentName}</span>
               <span style="font-size:12px;color:#888;">${s.반}반 · ${s.그룹}그룹</span>
               <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
+              ${s.updatedAt ? `<span style="font-size:11px;color:#bbb;margin-left:4px;">· ${s.updatedAt.toDate ? s.updatedAt.toDate().toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : ""}</span>` : ""}
             </div>
             ${cancelList}
             <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
