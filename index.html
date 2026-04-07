@@ -292,12 +292,7 @@
   <div id="refundNotice" style="display:none;background:#fff;border:1px solid #e5e5e3;border-radius:14px;padding:1.125rem 1.375rem;margin-bottom:0.875rem;"></div>
 
   <div id="contentsSection" style="display:none;">
-    <div style="font-size:13px;font-weight:600;color:#888;margin-bottom:0.625rem;padding-left:2px;">콘텐츠 선택</div>
     <div id="contentList"></div>
-    <div style="margin-top:1rem;">
-      <button class="btn btn-primary btn-full" id="submitBtn" onclick="submitSelections()">선택 저장하기</button>
-      <div id="submitMsg" class="msg"></div>
-    </div>
   </div>
 
 </div>
@@ -620,7 +615,10 @@ function formatDateKR(dateStr) {
 }
 
 function getSeriesName(name) {
-  return name.replace(/\s+[\d~·\-]+회$/, "").trim();
+  const base = name.replace(/\s+[\d~·\-]+회$/, "").trim();
+  // 커스텀 시리즈 매핑
+  if (base === "CRUX 공통국어" || base === "CRUX 화작·언매") return "CRUX 국어";
+  return base;
 }
 
 function getFirstRound(name) {
@@ -645,13 +643,45 @@ function renderNotice() {
     if (!seriesMap.has(series)) seriesMap.set(series, item);
   });
 
-  const rows = Array.from(seriesMap.entries())
-    .map(([series, item]) =>
-      `<div style="padding:7px 0;border-bottom:1px solid #f0f0ee;">
-        <div style="font-size:13px;font-weight:600;color:#1a1a1a;">${series}</div>
-        <div style="font-size:12px;color:#2BADA0;margin-top:2px;">${getFirstRound(item.name)}부터 환불 가능</div>
-      </div>`)
-    .join("");
+  // 전체 시리즈 목록 (환불 가능 여부 포함)
+  const allSeriesMap = new Map();
+  contents.sort((a,b) => a.order - b.order).forEach(item => {
+    const series = getSeriesName(item.name);
+    if (!allSeriesMap.has(series)) {
+      const refundable = item.deliveryDate && item.deliveryDate > refundCutoff;
+      allSeriesMap.set(series, { item, refundable });
+    }
+  });
+
+  const rows = Array.from(allSeriesMap.entries()).map(([series, { item, refundable }]) => {
+    const key = series;
+    if (!selections[key]) selections[key] = "신청";
+    const sel = selections[key];
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0ee;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${series}</div>
+          ${refundable
+            ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(item.name)}부터 환불 가능</div>`
+            : `<div style="font-size:11px;color:#aaa;margin-top:2px;">배부 완료</div>`}
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <button
+            style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s;
+              border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};
+              background:${sel==='환불'?'#fef3f2':'#fafafa'};
+              color:${sel==='환불'?'#e5534b':'#aaa'};"
+            onclick="pickSeries('${series}','환불')"
+            ${!refundable ? 'disabled style="opacity:0.3;cursor:not-allowed;padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;border:1.5px solid #e0e0e0;background:#fafafa;color:#ccc;"' : ''}>환불</button>
+          <button
+            style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;transition:all 0.15s;
+              border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};
+              background:${sel==='신청'?'#e4f5f3':'#fafafa'};
+              color:${sel==='신청'?'#2BADA0':'#aaa'};"
+            onclick="pickSeries('${series}','신청')">신청</button>
+        </div>
+      </div>`;
+  }).join("");
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -660,7 +690,11 @@ function renderNotice() {
         ${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/환불 가능합니다
       </span>
     </div>
-    <div style="padding:0 4px;">${rows}</div>`;
+    <div>${rows}</div>
+    <div style="margin-top:1rem;">
+      <button class="btn btn-primary btn-full" id="submitBtn" onclick="submitSelections()">선택 저장하기</button>
+      <div id="submitMsg" class="msg"></div>
+    </div>`;
   el.style.display = "";
 }
 
@@ -714,6 +748,11 @@ function pick(cid, val, btn) {
   );
   if (val === "환불") btn.classList.add("sel-refund");
   else               btn.classList.add("sel-apply");
+}
+
+function pickSeries(series, val) {
+  selections[series] = val;
+  renderNotice(); // 버튼 상태 즉시 갱신
 }
 
 /* ── STUDENT: submit ── */
