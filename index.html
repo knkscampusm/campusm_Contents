@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>QUETTA 콘텐츠 신청/환불</title>
+  <title>의대관 콘텐츠 신청/환불</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -406,8 +406,23 @@ function jsonp(url) {
   return new Promise((resolve, reject) => {
     const cb = 'cb_' + Date.now();
     const script = document.createElement('script');
-    window[cb] = (data) => { delete window[cb]; document.body.removeChild(script); resolve(data); };
-    script.onerror = () => { delete window[cb]; document.body.removeChild(script); reject(new Error('JSONP error')); };
+    const timer = setTimeout(() => {
+      delete window[cb];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      reject(new Error('timeout'));
+    }, 10000);
+    window[cb] = (data) => {
+      clearTimeout(timer);
+      delete window[cb];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      resolve(data);
+    };
+    script.onerror = () => {
+      clearTimeout(timer);
+      delete window[cb];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      reject(new Error('script error'));
+    };
     script.src = url + '&callback=' + cb;
     document.body.appendChild(script);
   });
@@ -463,8 +478,8 @@ async function lookupStudent() {
 
     await loadContentsAndPrev();
     renderContents();
-  } catch {
-    setMsg("lookupMsg", "서버 연결에 실패했습니다.", "error");
+  } catch(err) {
+    setMsg("lookupMsg", "서버 연결에 실패했습니다. (" + err.message + ")", "error");
   } finally {
     btn.disabled = false;
   }
