@@ -349,7 +349,14 @@
       </div>
     </div>
     <div class="card">
-      <div class="section-title">콘텐츠 목록</div>
+      <div class="row sb" style="margin-bottom:12px;">
+        <div class="section-title" style="margin:0;">콘텐츠 목록</div>
+        <div class="row" style="gap:8px;">
+          <input type="date" id="bulkDate" style="padding:6px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fafafa;outline:none;" />
+          <button class="btn btn-primary btn-sm" onclick="bulkUpdateDate()">일괄 수정</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleAllCheck()">전체 선택</button>
+        </div>
+      </div>
       <div id="adminContentList"><div class="empty">등록된 콘텐츠가 없습니다</div></div>
     </div>
   </div>
@@ -896,12 +903,14 @@ async function loadAdminContents() {
     const color = catColors[cat] || "#888";
     const seriesHtml = Object.entries(catGroups[cat]).map(([series, items]) => {
       const itemRows = items.map(item => `
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 0 6px 12px;border-bottom:1px solid #f8f8f6;">
-          <div style="flex:1;font-size:13px;color:#555;">${item.name}</div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;border-bottom:1px solid #f8f8f6;">
+          <input type="checkbox" class="content-check" data-id="${item.id}"
+            style="width:16px;height:16px;accent-color:#2BADA0;flex-shrink:0;cursor:pointer;" />
+          <div style="flex:1;font-size:13px;color:#555;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</div>
           <input type="date" value="${item.deliveryDate || ''}"
-            style="padding:5px 8px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;outline:none;"
+            style="padding:4px 6px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;outline:none;width:130px;flex-shrink:0;"
             onchange="updateDeliveryDate('${item.id}', this.value)" />
-          <button class="btn btn-danger btn-sm" onclick="deleteContent('${item.id}')">삭제</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteContent('${item.id}')" style="padding:5px 10px;">삭제</button>
         </div>`).join("");
 
       return `
@@ -924,6 +933,26 @@ async function loadAdminContents() {
 async function updateDeliveryDate(id, date) {
   await db.collection("contents").doc(id).update({ deliveryDate: date || null });
   toast("배부일이 수정되었습니다");
+}
+
+async function bulkUpdateDate() {
+  const date = document.getElementById("bulkDate").value;
+  if (!date) { toast("날짜를 먼저 선택해주세요"); return; }
+  const checked = document.querySelectorAll(".content-check:checked");
+  if (!checked.length) { toast("콘텐츠를 먼저 선택해주세요"); return; }
+  const batch = db.batch();
+  checked.forEach(cb => {
+    batch.update(db.collection("contents").doc(cb.dataset.id), { deliveryDate: date });
+  });
+  await batch.commit();
+  toast(`✓ ${checked.length}개 배부일 수정 완료`);
+  loadAdminContents();
+}
+
+function toggleAllCheck() {
+  const all = document.querySelectorAll(".content-check");
+  const allChecked = Array.from(all).every(cb => cb.checked);
+  all.forEach(cb => cb.checked = !allChecked);
 }
 
 /* ── ADMIN: submissions ── */
