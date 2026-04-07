@@ -328,9 +328,18 @@
       <div class="add-grid">
         <div class="span2">
           <label>콘텐츠 이름</label>
-          <input type="text" id="newName" placeholder="예: 국어 위클리팩 1호" />
+          <input type="text" id="newName" placeholder="예: CIRCUIT 수학 43~45회" />
         </div>
-        <div class="span2">
+        <div>
+          <label>과목</label>
+          <select id="newCategory" style="width:100%;padding:10px 12px;font-size:14px;border:1px solid #ddd;border-radius:10px;background:#fafafa;outline:none;">
+            <option value="국어">국어</option>
+            <option value="수학">수학</option>
+            <option value="영어">영어</option>
+            <option value="과학탐구">과학탐구</option>
+          </select>
+        </div>
+        <div>
           <label>배부일</label>
           <input type="date" id="newDelivery" />
         </div>
@@ -842,8 +851,10 @@ async function addContent() {
   const snap = await db.collection("contents").orderBy("order","desc").limit(1).get();
   const lastOrder = snap.empty ? 0 : (snap.docs[0].data().order || 0);
 
+  const category = document.getElementById("newCategory").value;
   await db.collection("contents").add({
     name,
+    category,
     deliveryDate: delivery || null,
     order: lastOrder + 1,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -867,31 +878,52 @@ async function loadAdminContents() {
   const el   = document.getElementById("adminContentList");
   if (snap.empty) { el.innerHTML = '<div class="empty">등록된 콘텐츠가 없습니다</div>'; return; }
 
-  // 카테고리별 그룹핑
-  const grouped = {};
+  const CAT_ORDER = ["국어", "수학", "영어", "과학탐구"];
+  const catColors = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
+
+  // 카테고리별 그룹핑 → 시리즈별 그룹핑
+  const catGroups = {};
   snap.docs.forEach(d => {
-    const data = d.data();
-    const cat = data.category || "기타";
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push({ id: d.id, ...data });
+    const data = { id: d.id, ...d.data() };
+    const cat  = data.category || "기타";
+    const series = getSeriesName(data.name);
+    if (!catGroups[cat]) catGroups[cat] = {};
+    if (!catGroups[cat][series]) catGroups[cat][series] = [];
+    catGroups[cat][series].push(data);
   });
 
-  const catColors = { "국어": "#e4f5f3", "수학": "#e8f0fe", "영어": "#fff3e0", "과학탐구": "#f3e5f5" };
-  const catText   = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
-
-  el.innerHTML = Object.entries(grouped).map(([cat, items]) => `
-    <div style="margin-bottom:1rem;">
-      <div style="font-size:12px;font-weight:700;padding:4px 10px;border-radius:6px;display:inline-block;
-        background:${catColors[cat]||'#f0f0ee'};color:${catText[cat]||'#666'};margin-bottom:8px;">${cat}</div>
-      ${items.map(item => `
-        <div class="cl-item">
-          <div class="cl-info">
-            <div class="cl-name">${item.name}</div>
-            <div class="cl-dates">${item.deliveryDate ? "배부일 " + item.deliveryDate : "배부일 미설정"}</div>
-          </div>
+  el.innerHTML = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
+    const color = catColors[cat] || "#888";
+    const seriesHtml = Object.entries(catGroups[cat]).map(([series, items]) => {
+      const itemRows = items.map(item => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 0 6px 12px;border-bottom:1px solid #f8f8f6;">
+          <div style="flex:1;font-size:13px;color:#555;">${item.name}</div>
+          <input type="date" value="${item.deliveryDate || ''}"
+            style="padding:5px 8px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;outline:none;"
+            onchange="updateDeliveryDate('${item.id}', this.value)" />
           <button class="btn btn-danger btn-sm" onclick="deleteContent('${item.id}')">삭제</button>
-        </div>`).join("")}
-    </div>`).join("");
+        </div>`).join("");
+
+      return `
+        <div style="margin-bottom:10px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
+          <div style="padding:8px 12px;background:#f8f8f6;font-size:13px;font-weight:700;color:#333;border-bottom:1px solid #ebebeb;">
+            ${series}
+          </div>
+          ${itemRows}
+        </div>`;
+    }).join("");
+
+    return `
+      <div style="margin-bottom:1.25rem;">
+        <div style="font-size:12px;font-weight:700;color:${color};letter-spacing:0.05em;padding:4px 0 6px;border-bottom:2px solid ${color};margin-bottom:10px;">${cat}</div>
+        ${seriesHtml}
+      </div>`;
+  }).join("");
+}
+
+async function updateDeliveryDate(id, date) {
+  await db.collection("contents").doc(id).update({ deliveryDate: date || null });
+  toast("배부일이 수정되었습니다");
 }
 
 /* ── ADMIN: submissions ── */
