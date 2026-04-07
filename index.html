@@ -618,6 +618,7 @@ function getSeriesName(name) {
   const base = name.replace(/\s+[\d~·\-]+회$/, "").trim();
   // 커스텀 시리즈 매핑
   if (base === "CRUX 공통국어" || base === "CRUX 화작·언매") return "CRUX 국어";
+  if (base.startsWith("CONNEX 수학")) return "CONNEX 수학";
   return base;
 }
 
@@ -673,7 +674,12 @@ function renderNotice() {
 
   const rows = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
     const color = catColors[cat] || "#888";
-    const items = catGroups[cat].map(({ series, firstRefundable }) => {
+    // 환불 가능한 것 먼저, 배부 완료는 아래로
+    const sorted = [...catGroups[cat]].sort((a, b) => {
+      if (!!a.firstRefundable === !!b.firstRefundable) return 0;
+      return a.firstRefundable ? -1 : 1;
+    });
+    const items = sorted.map(({ series, firstRefundable }) => {
       const canRefund = !!firstRefundable;
       if (!selections[series]) selections[series] = "신청";
       const sel = selections[series];
