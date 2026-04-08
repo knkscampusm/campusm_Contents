@@ -815,13 +815,17 @@ async function submitSelections() {
   btn.disabled = true;
   setMsg("submitMsg", "저장 중...", "loading");
   try {
-    await db.collection("submissions").doc(student.id).set({
+    const submitData = {
       studentId: student.id, studentName: student.name,
       반: student.반, 그룹: student.그룹,
       selections,
       cutoffDate: refundCutoff || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    };
+    // 현재 선택값 유지 (재방문 시 불러오기용)
+    await db.collection("submissions").doc(student.id).set(submitData);
+    // 이력 추가 저장
+    await db.collection("submissionHistory").add(submitData);
     toast("✓ 저장되었습니다");
     setTimeout(() => resetStudentView(), 1500);
   } catch {
@@ -1025,7 +1029,7 @@ async function loadChanges() {
   el.innerHTML = '<div class="empty">불러오는 중...</div>';
 
   const [sSnap, cSnap, settingDoc] = await Promise.all([
-    db.collection("submissions").get(),
+    db.collection("submissionHistory").orderBy("updatedAt","desc").get(),
     db.collection("contents").orderBy("order").get(),
     db.collection("settings").doc("refund").get()
   ]);
@@ -1059,12 +1063,7 @@ async function loadChanges() {
     return;
   }
 
-  // 최근 제출 순 정렬
-  changed.sort((a, b) => {
-    const aT = a.updatedAt?.toDate?.() || new Date(0);
-    const bT = b.updatedAt?.toDate?.() || new Date(0);
-    return bT - aT;
-  });
+  // submissionHistory는 이미 updatedAt desc 정렬
 
   el.innerHTML = changed.map(s => {
     const period = s.cutoffDate || "기준일 미설정";
