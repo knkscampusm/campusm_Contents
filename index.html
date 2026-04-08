@@ -625,23 +625,23 @@ async function lookupStudent() {
     if (!doc.exists) { setMsg("lookupMsg", "해당 학번을 찾을 수 없습니다.", "error"); return; }
 
     const data = doc.data();
-    student = { id: sid, name: data.이름, 반: data.반, 그룹: data.그룹, 탐구유형: data.탐구유형 || "", 탐구1: data.탐구1 || "", 탐구2: data.탐구2 || "" };
+    student = { id: sid, name: data.name, ban: data.ban, group: data.group, subjectType: data.subjectType || "", subject1: data.subject1 || "", subject2: data.subject2 || "" };
     setMsg("lookupMsg", "");
 
     document.getElementById("disp_name").textContent  = student.name;
-    document.getElementById("disp_ban").textContent   = student.반 + "반";
-    document.getElementById("disp_group").textContent = student.그룹 + "그룹";
+    document.getElementById("disp_ban").textContent   = student.ban + "반";
+    document.getElementById("disp_group").textContent = student.group + "그룹";
     const dispType = document.getElementById("disp_type");
     const typeLabel = { "🟡": "🟡 사탐+사탐", "🟢": "🟢 사탐+과탐", "🔵": "🔵 과탐+과탐" };
-    if (student.탐구유형 && typeLabel[student.탐구유형]) {
-      dispType.textContent = typeLabel[student.탐구유형];
+    if (student.subjectType && typeLabel[student.subjectType]) {
+      dispType.textContent = typeLabel[student.subjectType];
       dispType.style.display = "";
     } else dispType.style.display = "none";
     // 탐구 과목명 뱃지
     const t1el = document.getElementById("disp_t1");
     const t2el = document.getElementById("disp_t2");
-    if (student.탐구1) { t1el.textContent = student.탐구1; t1el.style.display = ""; } else t1el.style.display = "none";
-    if (student.탐구2) { t2el.textContent = student.탐구2; t2el.style.display = ""; } else t2el.style.display = "none";
+    if (student.subject1) { t1el.textContent = student.subject1; t1el.style.display = ""; } else t1el.style.display = "none";
+    if (student.subject2) { t2el.textContent = student.subject2; t2el.style.display = ""; } else t2el.style.display = "none";
     document.getElementById("studentInfoCard").style.display = "";
 
     await loadContentsAndPrev();
@@ -671,8 +671,8 @@ async function loadContentsAndPrev() {
 /* ── STUDENT: render ── */
 function getScienceStatus() {
   if (!student) return { countI: 0, countII: 0 };
-  const t1 = student.탐구1 || '';
-  const t2 = student.탐구2 || '';
+  const t1 = student.subject1 || '';
+  const t2 = student.subject2 || '';
   const countI  = (t1.includes('Ⅰ') ? 1 : 0) + (t2.includes('Ⅰ') ? 1 : 0);
   const countII = (t1.includes('Ⅱ') ? 1 : 0) + (t2.includes('Ⅱ') ? 1 : 0);
   return { countI, countII };
@@ -957,16 +957,16 @@ async function submitSelections() {
     }
 
     const submitData = {
-      studentId: student.id, studentName: student.name,
-      반: student.반, 그룹: student.그룹,
+      studentId: student.id, name: student.name,
+      ban: student.ban, group: student.group,
       selections: touchedSelections,
       cutoffDate: refundCutoff || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     // 현재 선택값 유지 (재방문 시 불러오기용)
     await db.collection("submissions").doc(student.id).set({
-      studentId: student.id, studentName: student.name,
-      반: student.반, 그룹: student.그룹,
+      studentId: student.id, name: student.name,
+      ban: student.ban, group: student.group,
       selections,
       cutoffDate: refundCutoff || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1166,7 +1166,7 @@ async function loadSubmissions() {
   }
   body.innerHTML = subs.map(s => `
     <tr>
-      <td>${s.studentId}</td><td>${s.studentName}</td><td>${s.반}</td><td>${s.그룹}</td>
+      <td>${s.studentId}</td><td>${s.name}</td><td>${s.ban}</td><td>${s.group}</td>
       ${cols.map(c => {
         const v = s.selections?.[c.id];
         if (v === "환불") return `<td class="tag-r">취소</td>`;
@@ -1288,8 +1288,8 @@ async function loadChanges() {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
           <div style="flex:1;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
-              <span style="font-size:15px;font-weight:700;color:${processed?'#aaa':'#1a1a1a'};">${s.studentName}</span>
-              <span style="font-size:12px;color:#888;">${s.반}반 · ${s.그룹}그룹</span>
+              <span style="font-size:15px;font-weight:700;color:${processed?'#aaa':'#1a1a1a'};">${s.name}</span>
+              <span style="font-size:12px;color:#888;">${s.ban}반 · ${s.group}그룹</span>
               <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
             </div>
             ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:8px;">신청/취소 시점: ${submittedAt}${period !== "기준일 미설정" ? " · 기준일 " + formatDateKR(period) : ""}</div>` : ""}
@@ -1351,7 +1351,7 @@ async function exportExcel() {
 
   const headers = ["학번","이름","반","그룹", ...cols.map(c => c.name)];
   const rows    = subs.map(s => [
-    s.studentId, s.studentName, s.반, s.그룹,
+    s.studentId, s.name, s.ban, s.group,
     ...cols.map(c => s.selections?.[c.id] || "-")
   ]);
 
