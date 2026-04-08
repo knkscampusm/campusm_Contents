@@ -1116,13 +1116,11 @@ async function loadChanges() {
 
   // submissionHistory는 이미 updatedAt desc 정렬
 
+  const priceDoc2 = await db.collection("settings").doc("prices").get();
+  const priceMap  = priceDoc2.exists ? priceDoc2.data() : { ...DEFAULT_PRICES };
+
   el.innerHTML = changed.map(s => {
     const period = s.cutoffDate || "기준일 미설정";
-
-    // 해당 시점에 취소 가능했던 콘텐츠의 선택값만 표시
-    // 금액 계산: 해당 시점 이후 회차 수 × 단가
-    const priceDoc2 = await db.collection("settings").doc("prices").get();
-    const priceMap  = priceDoc2.exists ? priceDoc2.data() : { ...DEFAULT_PRICES };
 
     // 시리즈별 환불 가능 회차 수 계산
     const seriesCountMap = {};
