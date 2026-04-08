@@ -665,10 +665,20 @@ function formatDateKR(dateStr) {
 
 function getSeriesName(name) {
   const base = name.replace(/\s+[\d~·\-]+회$/, "").trim();
-  // 커스텀 시리즈 매핑
   if (base === "CRUX 공통국어" || base === "CRUX 화작·언매") return "CRUX 국어";
   if (base.startsWith("CONNEX 수학")) return "CONNEX 수학";
+  if (base === "CRUX 과학" || base === "CRUX 과학Ⅰ" || base === "CRUX 과학Ⅱ") return "CRUX 과학";
+  if (base === "CIRCUIT 과학" || base === "CIRCUIT 과학Ⅰ") return "CIRCUIT 과학Ⅰ";
   return base;
+}
+
+// 선택키 → 화면 표시명 (배열이면 여러 행)
+const SERIES_DISPLAY = {
+  "CRUX 과학":    ["CRUX 과학Ⅰ", "CRUX 과학Ⅱ"],
+  "CIRCUIT 과학Ⅰ": ["CIRCUIT 과학Ⅰ"],
+};
+function getDisplayNames(series) {
+  return SERIES_DISPLAY[series] || [series];
 }
 
 function getFirstRound(name) {
@@ -735,22 +745,32 @@ function renderNotice() {
       return a.firstRefundable.deliveryDate.localeCompare(b.firstRefundable.deliveryDate);
     });
     const items = sorted.map(({ series, firstRefundable }) => {
-      const canRefund = !!firstRefundable;
-      const isBlocked = isSaTam && cat === "과학탐구"; // 🟡 학생 과학탐구 블락
+      const canRefund    = !!firstRefundable;
+      const isBlocked    = isSaTam && cat === "과학탐구";
       if (!selections[series]) selections[series] = "신청";
-      const sel = selections[series];
+      const sel          = selections[series];
+      const displayNames = getDisplayNames(series);
+      const price        = seriesPrices[series];
+
+      // 이름행 (Ⅰ,Ⅱ 분리된 경우 여러 행)
+      const nameRows = displayNames.map((dn, i) => `
+        <div style="display:flex;align-items:center;gap:8px;${i>0?'margin-top:2px':''}">
+          <div style="font-size:14px;font-weight:600;color:${(canRefund&&!isBlocked)?'#1a1a1a':'#bbb'};">${dn}</div>
+          ${i===0 && price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
+        </div>`).join("");
+
+      // 서브텍스트
+      const subText = isBlocked
+        ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
+        : canRefund
+          ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+          : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
+
       return `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
           <div style="flex:1;min-width:0;">
-            <div style="display:flex;align-items:center;gap:8px;">
-            <div style="font-size:14px;font-weight:600;color:${(canRefund&&!isBlocked)?'#1a1a1a':'#bbb'};">${series}</div>
-            ${seriesPrices[series] ? `<div style="font-size:12px;color:#aaa;">${seriesPrices[series].toLocaleString()}원</div>` : ""}
-          </div>
-            ${isBlocked
-              ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
-              : canRefund
-                ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
-                : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`}
+            ${nameRows}
+            ${subText}
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
             <button
@@ -1129,9 +1149,10 @@ async function loadChanges() {
         const amountStr = price
           ? `<span style="color:${valColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${price.toLocaleString()}원)</span>`
           : "";
+        const dispNames = getDisplayNames(series).join(" · ");
         return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;padding:3px 0;flex-wrap:wrap;">
           <span style="font-weight:700;color:${valColor};min-width:30px;">[${valText}]</span>
-          <span>${series}</span>
+          <span>${dispNames}</span>
           ${round ? `<span style="color:#aaa;font-size:12px;">${round}</span>` : ""}
           ${amountStr}
         </div>`;
