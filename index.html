@@ -289,6 +289,8 @@
         <span class="badge badge-teal" id="disp_ban"></span>
         <span class="badge badge-gray" id="disp_group"></span>
         <span class="badge" id="disp_type" style="display:none;background:#fff8e1;color:#f9a825;"></span>
+      <span class="badge" id="disp_t1" style="display:none;background:#e8f5e9;color:#388e3c;"></span>
+      <span class="badge" id="disp_t2" style="display:none;background:#e8f5e9;color:#388e3c;"></span>
       </div>
     </div>
   </div>
@@ -447,6 +449,8 @@ const DEFAULT_PRICES = {
   "The Constant":       8500,
   "CIRCUIT 영어":       6500,
   "강대모의고사K 국어": 14000,
+  "CRUX 과학":          7000,
+  "CIRCUIT 과학Ⅰ":     7500,
 };
 
 /* ── 초기 콘텐츠 데이터 ── */
@@ -620,7 +624,7 @@ async function lookupStudent() {
     if (!doc.exists) { setMsg("lookupMsg", "해당 학번을 찾을 수 없습니다.", "error"); return; }
 
     const data = doc.data();
-    student = { id: sid, name: data.이름, 반: data.반, 그룹: data.그룹, 탐구유형: data.탐구유형 || "" };
+    student = { id: sid, name: data.이름, 반: data.반, 그룹: data.그룹, 탐구유형: data.탐구유형 || "", 탐구1: data.탐구1 || "", 탐구2: data.탐구2 || "" };
     setMsg("lookupMsg", "");
 
     document.getElementById("disp_name").textContent  = student.name;
@@ -632,6 +636,11 @@ async function lookupStudent() {
       dispType.textContent = typeLabel[student.탐구유형];
       dispType.style.display = "";
     } else dispType.style.display = "none";
+    // 탐구 과목명 뱃지
+    const t1el = document.getElementById("disp_t1");
+    const t2el = document.getElementById("disp_t2");
+    if (student.탐구1) { t1el.textContent = student.탐구1; t1el.style.display = ""; } else t1el.style.display = "none";
+    if (student.탐구2) { t2el.textContent = student.탐구2; t2el.style.display = ""; } else t2el.style.display = "none";
     document.getElementById("studentInfoCard").style.display = "";
 
     await loadContentsAndPrev();
@@ -659,6 +668,27 @@ async function loadContentsAndPrev() {
 }
 
 /* ── STUDENT: render ── */
+function getScienceStatus() {
+  if (!student) return { countI: 0, countII: 0 };
+  const t1 = student.탐구1 || '';
+  const t2 = student.탐구2 || '';
+  const countI  = (t1.includes('Ⅰ') ? 1 : 0) + (t2.includes('Ⅰ') ? 1 : 0);
+  const countII = (t1.includes('Ⅱ') ? 1 : 0) + (t2.includes('Ⅱ') ? 1 : 0);
+  return { countI, countII };
+}
+
+// 시리즈별 과학 과목 블락 여부 (subType: 'Ⅰ' | 'Ⅱ' | null)
+function isScienceBlocked(series, subType) {
+  const { countI, countII } = getScienceStatus();
+  if (series === 'CRUX 과학') {
+    if (subType === 'Ⅰ') return countI === 0;
+    if (subType === 'Ⅱ') return countII === 0;
+    return countI === 0 && countII === 0;
+  }
+  if (series === 'CIRCUIT 과학Ⅰ') return countI === 0;
+  return false;
+}
+
 function formatDateKR(dateStr) {
   if (!dateStr) return "";
   const [, m, d] = dateStr.split("-");
@@ -690,7 +720,6 @@ function getFirstRound(name) {
 
 function renderNotice() {
   const el = document.getElementById("refundNotice");
-  const isSaTam = !!(student && student.탐구유형 && student.탐구유형.trim().includes("🟡"));
   if (!refundCutoff) { el.style.display = "none"; return; }
 
   const refundable = contents
@@ -746,43 +775,104 @@ function renderNotice() {
       if (!b.firstRefundable) return -1;
       return a.firstRefundable.deliveryDate.localeCompare(b.firstRefundable.deliveryDate);
     });
+    const { countI, countII } = getScienceStatus();
+
     const items = sorted.map(({ series, firstRefundable }) => {
-      const canRefund    = !!firstRefundable;
-      const isBlocked    = isSaTam && cat === "과학탐구";
+      const canRefund = !!firstRefundable;
       if (!selections[series]) selections[series] = "신청";
-      const sel          = selections[series];
-      const displayNames = getDisplayNames(series);
-      const price        = seriesPrices[series];
+      const sel   = selections[series];
+      const price = seriesPrices[series];
 
-      // 이름행 (Ⅰ,Ⅱ 분리된 경우 여러 행)
-      const nameRows = displayNames.map((dn, i) => `
-        <div style="display:flex;align-items:center;gap:8px;${i>0?'margin-top:2px':''}">
-          <div style="font-size:14px;font-weight:600;color:${(canRefund&&!isBlocked)?'#1a1a1a':'#bbb'};">${dn}</div>
-          ${i===0 && price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
-        </div>`).join("");
+      // ── 과학탐구 특수 처리 ──
+      if (cat === "과학탐구") {
 
-      // 서브텍스트
-      const subText = isBlocked
-        ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
-        : canRefund
-          ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
-          : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
+        if (series === "CRUX 과학") {
+          // Ⅰ행, Ⅱ행 각각 블락 여부
+          const blockedI  = countI  === 0;
+          const blockedII = countII === 0;
+          const anyActive = !blockedI || !blockedII;
+          const note = (countI === 2 || countII === 2)
+            ? `<div style="font-size:11px;color:#888;margin-top:4px;">* CRUX 과학은 신청, 취소하는 경우 두 과목 같이 처리됩니다.</div>`
+            : "";
+
+          const rowI = `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+              <div style="font-size:14px;font-weight:600;color:${!blockedI?'#1a1a1a':'#bbb'};">CRUX 과학Ⅰ</div>
+              ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
+            </div>
+            ${blockedI ? '<div style="font-size:11px;color:#ccc;">해당없음</div>' : (canRefund ? `<div style="font-size:11px;color:#2BADA0;">${getFirstRound(firstRefundable.name)}부터 취소 가능</div>` : '<div style="font-size:11px;color:#ccc;">배부 완료</div>')}`;
+
+          const rowII = `
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;margin-bottom:2px;">
+              <div style="font-size:14px;font-weight:600;color:${!blockedII?'#1a1a1a':'#bbb'};">CRUX 과학Ⅱ</div>
+            </div>
+            ${blockedII ? '<div style="font-size:11px;color:#ccc;">해당없음</div>' : (canRefund ? `<div style="font-size:11px;color:#2BADA0;">${getFirstRound(firstRefundable.name)}부터 취소 가능</div>` : '<div style="font-size:11px;color:#ccc;">배부 완료</div>')}`;
+
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
+              <div style="flex:1;min-width:0;">
+                ${rowI}${rowII}${note}
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;">
+                <button ${(canRefund && anyActive)
+                  ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('CRUX 과학','환불')"`
+                  : `disabled style="${disabledStyle}"`}>취소</button>
+                <button ${(canRefund && anyActive)
+                  ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('CRUX 과학','신청')"`
+                  : `disabled style="${disabledStyle}"`}>신청</button>
+              </div>
+            </div>`;
+
+        } else if (series === "CIRCUIT 과학Ⅰ") {
+          const blocked = countI === 0;
+          const subText = blocked
+            ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
+            : canRefund
+              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+              : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="font-size:14px;font-weight:600;color:${!blocked?'#1a1a1a':'#bbb'};">CIRCUIT 과학Ⅰ</div>
+                  ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
+                </div>
+                ${subText}
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;">
+                <button ${(canRefund && !blocked)
+                  ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
+                  : `disabled style="${disabledStyle}"`}>취소</button>
+                <button ${(canRefund && !blocked)
+                  ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
+                  : `disabled style="${disabledStyle}"`}>신청</button>
+              </div>
+            </div>`;
+        }
+      }
+
+      // ── 일반 시리즈 처리 ──
+      const nameRow = `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="font-size:14px;font-weight:600;color:${canRefund?'#1a1a1a':'#bbb'};">${series}</div>
+          ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
+        </div>`;
+      const subText = canRefund
+        ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+        : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
 
       return `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
           <div style="flex:1;min-width:0;">
-            ${nameRows}
-            ${subText}
+            ${nameRow}${subText}
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button
-              ${(canRefund && !isBlocked)
-                ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
-                : `disabled style="${disabledStyle}"`}>취소</button>
-            <button
-              ${(canRefund && !isBlocked)
-                ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
-                : `disabled style="${disabledStyle}"`}>신청</button>
+            <button ${canRefund
+              ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
+              : `disabled style="${disabledStyle}"`}>취소</button>
+            <button ${canRefund
+              ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
+              : `disabled style="${disabledStyle}"`}>신청</button>
           </div>
         </div>`;
     }).join("");
