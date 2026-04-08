@@ -440,6 +440,15 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
+const DEFAULT_PRICES = {
+  "CRUX 국어":          9000,
+  "CONNEX 수학":        10000,
+  "CIRCUIT 수학":       7000,
+  "The Constant":       8500,
+  "CIRCUIT 영어":       6500,
+  "강대모의고사K 국어": 14000,
+};
+
 /* ── 초기 콘텐츠 데이터 ── */
 const INITIAL_CONTENTS = [
   { id: "ko_crux_1",  name: "CRUX 공통국어 1회",           category: "국어",    order: 1,   deliveryDate: "2026-02-26" },
@@ -635,14 +644,16 @@ async function lookupStudent() {
 
 /* ── STUDENT: load ── */
 async function loadContentsAndPrev() {
-  const [cSnap, sDoc, settingDoc] = await Promise.all([
+  const [cSnap, sDoc, settingDoc, priceSnap] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
     db.collection("submissions").doc(student.id).get(),
-    db.collection("settings").doc("refund").get()
+    db.collection("settings").doc("refund").get(),
+    db.collection("settings").doc("prices").get()
   ]);
   contents     = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   selections   = sDoc.exists ? (sDoc.data().selections || {}) : {};
   refundCutoff = settingDoc.exists ? (settingDoc.data().cutoffDate || null) : null;
+  seriesPrices = priceSnap.exists ? priceSnap.data() : { ...DEFAULT_PRICES };
 }
 
 /* ── STUDENT: render ── */
@@ -731,7 +742,10 @@ function renderNotice() {
       return `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:600;color:${(canRefund&&!isBlocked)?'#1a1a1a':'#bbb'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${series}</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+            <div style="font-size:14px;font-weight:600;color:${(canRefund&&!isBlocked)?'#1a1a1a':'#bbb'};">${series}</div>
+            ${seriesPrices[series] ? `<div style="font-size:12px;color:#aaa;">${seriesPrices[series].toLocaleString()}원</div>` : ""}
+          </div>
             ${isBlocked
               ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
               : canRefund
@@ -908,7 +922,11 @@ async function deleteContent(id) {
 }
 
 async function loadAdminContents() {
-  const snap = await db.collection("contents").orderBy("order").get();
+  const [snap, priceDoc] = await Promise.all([
+    db.collection("contents").orderBy("order").get(),
+    db.collection("settings").doc("prices").get()
+  ]);
+  const adminPrices = priceDoc.exists ? priceDoc.data() : { ...DEFAULT_PRICES };
   const el   = document.getElementById("adminContentList");
   if (snap.empty) { el.innerHTML = '<div class="empty">등록된 콘텐츠가 없습니다</div>'; return; }
 
@@ -942,8 +960,14 @@ async function loadAdminContents() {
 
       return `
         <div style="margin-bottom:10px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
-          <div style="padding:8px 12px;background:#f8f8f6;font-size:13px;font-weight:700;color:#333;border-bottom:1px solid #ebebeb;">
-            ${series}
+          <div style="padding:8px 12px;background:#f8f8f6;border-bottom:1px solid #ebebeb;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <span style="font-size:13px;font-weight:700;color:#333;">${series}</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+              <input type="number" placeholder="금액" value="${adminPrices[series]||''}"
+                style="width:90px;padding:4px 8px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fff;outline:none;text-align:right;"
+                onchange="updateSeriesPrice('${series}', this.value)" />
+              <span style="font-size:11px;color:#aaa;">원</span>
+            </div>
           </div>
           ${itemRows}
         </div>`;
@@ -960,6 +984,13 @@ async function loadAdminContents() {
 async function updateDeliveryDate(id, date) {
   await db.collection("contents").doc(id).update({ deliveryDate: date || null });
   toast("배부일이 수정되었습니다");
+}
+
+async function updateSeriesPrice(series, val) {
+  const price = parseInt(val) || 0;
+  await db.collection("settings").doc("prices").set({ [series]: price }, { merge: true });
+  seriesPrices[series] = price;
+  toast(`${series} 금액 저장: ${price.toLocaleString()}원`);
 }
 
 async function bulkUpdateDate() {
@@ -1069,6 +1100,20 @@ async function loadChanges() {
     const period = s.cutoffDate || "기준일 미설정";
 
     // 해당 시점에 취소 가능했던 콘텐츠의 선택값만 표시
+    // 금액 계산: 해당 시점 이후 회차 수 × 단가
+    const priceDoc2 = await db.collection("settings").doc("prices").get();
+    const priceMap  = priceDoc2.exists ? priceDoc2.data() : { ...DEFAULT_PRICES };
+
+    // 시리즈별 환불 가능 회차 수 계산
+    const seriesCountMap = {};
+    contents.sort((a,b) => a.order - b.order).forEach(item => {
+      const sr = getSeriesName(item.name);
+      if (item.deliveryDate && s.cutoffDate && item.deliveryDate > s.cutoffDate) {
+        seriesCountMap[sr] = (seriesCountMap[sr] || 0) + 1;
+      }
+    });
+
+    let totalAmount = 0;
     const changeList = Object.entries(s.selections || {})
       .filter(([series]) => !!seriesFirstMap[series])
       .map(([series, val]) => {
@@ -1077,12 +1122,25 @@ async function loadChanges() {
         const isCancel = val === "취소" || val === "환불";
         const valColor = isCancel ? "#e5534b" : "#2BADA0";
         const valText  = isCancel ? "취소" : "신청";
-        return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;padding:3px 0;">
+        const price    = priceMap[series] || 0;
+        const count    = seriesCountMap[series] || 0;
+        const amount   = price * count;
+        totalAmount   += isCancel ? -amount : amount;
+        const amountStr = price
+          ? `<span style="color:${valColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${price.toLocaleString()}원)</span>`
+          : "";
+        return `<div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#555;padding:3px 0;flex-wrap:wrap;">
           <span style="font-weight:700;color:${valColor};min-width:30px;">[${valText}]</span>
           <span>${series}</span>
           ${round ? `<span style="color:#aaa;font-size:12px;">${round}</span>` : ""}
+          ${amountStr}
         </div>`;
       }).join("");
+
+    const totalColor  = totalAmount < 0 ? "#e5534b" : "#2BADA0";
+    const totalStr    = totalAmount !== 0
+      ? `<div style="margin-top:8px;padding:6px 10px;background:#f8f8f6;border-radius:8px;font-size:13px;font-weight:700;color:${totalColor};text-align:right;">합계: ${totalAmount>0?"+":""}${totalAmount.toLocaleString()}원</div>`
+      : "";
 
     const processedMap  = s.processedByPeriod    || {};
     const processed     = processedMap[period]   || false;
@@ -1104,6 +1162,7 @@ async function loadChanges() {
             </div>
             ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:8px;">신청/취소 시점: ${submittedAt}${period !== "기준일 미설정" ? " · 기준일 " + formatDateKR(period) : ""}</div>` : ""}
             ${changeList}
+            ${totalStr}
             <div style="margin-top:8px;">
               <input type="text" placeholder="비고" value="${memo}"
                 style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
