@@ -278,7 +278,7 @@
       <input type="text" id="sidInput" placeholder="학번을 입력하세요" maxlength="20" inputmode="numeric" style="flex:1;" />
       <button class="btn btn-primary" id="lookupBtn" onclick="lookupStudent()" style="padding:13px 22px;">조회</button>
     </div>
-    <div style="font-size:13px;color:#2BADA0;text-align:center;margin-top:10px;font-weight:500;">학생증을 태깅해주세요</div>
+    <div style="font-size:12px;color:#888;text-align:center;margin-top:10px;">신청/취소 선택 후 &quot;최종 저장&quot; 버튼 눌러야 반영됩니다.</div>
     <div id="lookupMsg" class="msg"></div>
   </div>
 
@@ -541,19 +541,27 @@ const INITIAL_CONTENTS = [
   { id: "en_ci_27_28",name: "CIRCUIT 영어 27·28회",          category: "영어",    order: 83,  deliveryDate: "2026-06-11" },
   { id: "en_ci_29_30",name: "CIRCUIT 영어 29·30회",          category: "영어",    order: 84,  deliveryDate: "2026-06-18" },
   { id: "en_ci_31_32",name: "CIRCUIT 영어 31·32회",          category: "영어",    order: 85,  deliveryDate: "2026-06-25" },
-  { id: "sc_crux_1",  name: "CRUX 과학 1회",                 category: "과학탐구", order: 86,  deliveryDate: "2026-02-26" },
-  { id: "sc_crux_2",  name: "CRUX 과학 2회",                 category: "과학탐구", order: 87,  deliveryDate: "2026-03-05" },
-  { id: "sc_crux_3",  name: "CRUX 과학 3회",                 category: "과학탐구", order: 88,  deliveryDate: "2026-03-12" },
-  { id: "sc_crux_4",  name: "CRUX 과학 4회",                 category: "과학탐구", order: 89,  deliveryDate: "2026-03-18" },
-  { id: "sc_crux_5",  name: "CRUX 과학 5회",                 category: "과학탐구", order: 90,  deliveryDate: "2026-03-26" },
-  { id: "sc_crux_6",  name: "CRUX 과학 6회",                 category: "과학탐구", order: 91,  deliveryDate: "2026-04-02" },
-  { id: "sc_crux_7",  name: "CRUX 과학 7회",                 category: "과학탐구", order: 92,  deliveryDate: "2026-04-09" },
-  { id: "sc_crux_8",  name: "CRUX 과학 8회",                 category: "과학탐구", order: 93,  deliveryDate: "2026-04-16" },
-  { id: "sc_crux_9",  name: "CRUX 과학 9회",                 category: "과학탐구", order: 94,  deliveryDate: "2026-04-23" },
-  { id: "sc_crux_10", name: "CRUX 과학 10회",                category: "과학탐구", order: 95,  deliveryDate: "2026-04-30" },
-  { id: "sc_crux_11", name: "CRUX 과학 11회",                category: "과학탐구", order: 96,  deliveryDate: "2026-05-07" },
-  { id: "sc_crux_12", name: "CRUX 과학 12회",                category: "과학탐구", order: 97,  deliveryDate: "2026-05-14" },
-  { id: "sc_ci_1_2",  name: "CIRCUIT 과학 1·2회",            category: "과학탐구", order: 98,  deliveryDate: "2026-04-09" },
+  { id: "sc_crux_i_1",  name: "CRUX 과학Ⅰ 1회",  category: "과학탐구", order: 86,  deliveryDate: "2026-02-26" },
+  { id: "sc_crux_i_2",  name: "CRUX 과학Ⅰ 2회",  category: "과학탐구", order: 87,  deliveryDate: "2026-03-05" },
+  { id: "sc_crux_i_3",  name: "CRUX 과학Ⅰ 3회",  category: "과학탐구", order: 88,  deliveryDate: "2026-03-12" },
+  { id: "sc_crux_i_4",  name: "CRUX 과학Ⅰ 4회",  category: "과학탐구", order: 89,  deliveryDate: "2026-03-18" },
+  { id: "sc_crux_i_5",  name: "CRUX 과학Ⅰ 5회",  category: "과학탐구", order: 90,  deliveryDate: "2026-03-26" },
+  { id: "sc_crux_i_6",  name: "CRUX 과학Ⅰ 6회",  category: "과학탐구", order: 91,  deliveryDate: "2026-04-02" },
+  { id: "sc_crux_i_7",  name: "CRUX 과학Ⅰ 7회",  category: "과학탐구", order: 92,  deliveryDate: "2026-04-09" },
+  { id: "sc_crux_i_8",  name: "CRUX 과학Ⅰ 8회",  category: "과학탐구", order: 93,  deliveryDate: "2026-04-16" },
+  { id: "sc_crux_i_9",  name: "CRUX 과학Ⅰ 9회",  category: "과학탐구", order: 94,  deliveryDate: "2026-04-23" },
+  { id: "sc_crux_i_10", name: "CRUX 과학Ⅰ 10회", category: "과학탐구", order: 95,  deliveryDate: "2026-04-30" },
+  { id: "sc_crux_i_11", name: "CRUX 과학Ⅰ 11회", category: "과학탐구", order: 96,  deliveryDate: "2026-05-07" },
+  { id: "sc_crux_i_12", name: "CRUX 과학Ⅰ 12회", category: "과학탐구", order: 97,  deliveryDate: "2026-05-14" },
+  { id: "sc_crux_ii_1",  name: "CRUX 과학Ⅱ 1회",  category: "과학탐구", order: 98,  deliveryDate: "2026-02-26" },
+  { id: "sc_crux_ii_2",  name: "CRUX 과학Ⅱ 2회",  category: "과학탐구", order: 99,  deliveryDate: "2026-03-05" },
+  { id: "sc_crux_ii_3",  name: "CRUX 과학Ⅱ 3회",  category: "과학탐구", order: 100, deliveryDate: "2026-03-12" },
+  { id: "sc_crux_ii_4",  name: "CRUX 과학Ⅱ 4회",  category: "과학탐구", order: 101, deliveryDate: "2026-03-18" },
+  { id: "sc_crux_ii_5",  name: "CRUX 과학Ⅱ 5회",  category: "과학탐구", order: 102, deliveryDate: "2026-03-26" },
+  { id: "sc_crux_ii_6",  name: "CRUX 과학Ⅱ 6회",  category: "과학탐구", order: 103, deliveryDate: "2026-04-02" },
+  { id: "sc_crux_ii_7",  name: "CRUX 과학Ⅱ 7회",  category: "과학탐구", order: 104, deliveryDate: "2026-04-09" },
+  { id: "sc_crux_ii_8",  name: "CRUX 과학Ⅱ 8회",  category: "과학탐구", order: 105, deliveryDate: "2026-04-16" },
+  { id: "sc_ci_1_2",  name: "CIRCUIT 과학 1·2회",            category: "과학탐구", order: 106,  deliveryDate: "2026-04-09" },
   { id: "sc_ci_3_4",  name: "CIRCUIT 과학 3·4회",            category: "과학탐구", order: 99,  deliveryDate: "2026-04-16" },
   { id: "sc_ci_5_6",  name: "CIRCUIT 과학 5·6회",            category: "과학탐구", order: 100, deliveryDate: "2026-04-23" },
   { id: "sc_ci_7_8",  name: "CIRCUIT 과학 7·8회",            category: "과학탐구", order: 101, deliveryDate: "2026-04-30" },
@@ -567,7 +575,7 @@ const INITIAL_CONTENTS = [
 
 async function seedContentsIfEmpty() {
   // 이미 새 데이터(ko_crux_1)가 있으면 스킵
-  const check = await db.collection("contents").doc("ko_crux_1").get();
+  const check = await db.collection("contents").doc("sc_crux_i_1").get();
   if (check.exists) return;
 
   // 500개 이하라 단일 배치로 처리
@@ -632,7 +640,7 @@ async function lookupStudent() {
     document.getElementById("disp_ban").textContent   = student.ban + "반";
     document.getElementById("disp_group").textContent = student.group + "그룹";
     const dispType = document.getElementById("disp_type");
-    const typeLabel = { "🟡": "🟡 사탐+사탐", "🟢": "🟢 사탐+과탐", "🔵": "🔵 과탐+과탐" };
+    const typeLabel = { "🟢": "🟢 사탐+과탐", "🔵": "🔵 과탐+과탐" };
     if (student.subjectType && typeLabel[student.subjectType]) {
       dispType.textContent = typeLabel[student.subjectType];
       dispType.style.display = "";
@@ -700,14 +708,15 @@ function getSeriesName(name) {
   const base = name.replace(/\s+[\d~·\-]+회$/, "").trim();
   if (base === "CRUX 공통국어" || base === "CRUX 화작·언매") return "CRUX 국어";
   if (base.startsWith("CONNEX 수학")) return "CONNEX 수학";
-  if (base === "CRUX 과학" || base === "CRUX 과학Ⅰ" || base === "CRUX 과학Ⅱ") return "CRUX 과학";
+  if (base === "CRUX 과학Ⅰ") return "CRUX 과학Ⅰ";
+  if (base === "CRUX 과학Ⅱ") return "CRUX 과학Ⅱ";
+  if (base === "CRUX 과학") return "CRUX 과학Ⅰ"; // 구버전 호환
   if (base === "CIRCUIT 과학" || base === "CIRCUIT 과학Ⅰ") return "CIRCUIT 과학Ⅰ";
   return base;
 }
 
 // 선택키 → 화면 표시명 (배열이면 여러 행)
 const SERIES_DISPLAY = {
-  "CRUX 과학":    ["CRUX 과학Ⅰ", "CRUX 과학Ⅱ"],
   "CIRCUIT 과학Ⅰ": ["CIRCUIT 과학Ⅰ"],
 };
 function getDisplayNames(series) {
@@ -787,40 +796,52 @@ function renderNotice() {
       // ── 과학탐구 특수 처리 ──
       if (cat === "과학탐구") {
 
-        if (series === "CRUX 과학") {
-          // Ⅰ행, Ⅱ행 각각 블락 여부
-          const blockedI  = countI  === 0;
-          const blockedII = countII === 0;
-          const anyActive = !blockedI || !blockedII;
-          const note = (countI === 2 || countII === 2)
-            ? `<div style="font-size:11px;color:#888;margin-top:4px;">* CRUX 과학은 신청, 취소하는 경우 두 과목 같이 처리됩니다.</div>`
-            : "";
-
-          const rowI = `
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
-              <div style="font-size:14px;font-weight:600;color:${!blockedI?'#1a1a1a':'#bbb'};">CRUX 과학Ⅰ</div>
-              ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
-            </div>
-            ${blockedI ? '<div style="font-size:11px;color:#ccc;">해당없음</div>' : (canRefund ? `<div style="font-size:11px;color:#2BADA0;">${getFirstRound(firstRefundable.name)}부터 취소 가능</div>` : '<div style="font-size:11px;color:#ccc;">배부 완료</div>')}`;
-
-          const rowII = `
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;margin-bottom:2px;">
-              <div style="font-size:14px;font-weight:600;color:${!blockedII?'#1a1a1a':'#bbb'};">CRUX 과학Ⅱ</div>
-            </div>
-            ${blockedII ? '<div style="font-size:11px;color:#ccc;">해당없음</div>' : (canRefund ? `<div style="font-size:11px;color:#2BADA0;">${getFirstRound(firstRefundable.name)}부터 취소 가능</div>` : '<div style="font-size:11px;color:#ccc;">배부 완료</div>')}`;
-
+        if (series === "CRUX 과학Ⅰ") {
+          const blocked = countI === 0;
+          const note = countI === 2
+            ? `<div style="font-size:11px;color:#888;margin-top:4px;">* 신청, 취소하는 경우 과학Ⅱ도 같이 처리됩니다.</div>` : "";
+          const subText = blocked
+            ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
+            : canRefund
+              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+              : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
           return `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
               <div style="flex:1;min-width:0;">
-                ${rowI}${rowII}${note}
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="font-size:14px;font-weight:600;color:${!blocked?'#1a1a1a':'#bbb'};">CRUX 과학Ⅰ</div>
+                  ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
+                </div>
+                ${subText}${note}
               </div>
               <div style="display:flex;gap:6px;flex-shrink:0;">
-                <button ${(canRefund && anyActive)
-                  ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('CRUX 과학','환불')"`
-                  : `disabled style="${disabledStyle}"`}>취소</button>
-                <button ${(canRefund && anyActive)
-                  ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('CRUX 과학','신청')"`
-                  : `disabled style="${disabledStyle}"`}>신청</button>
+                <button ${(canRefund && !blocked) ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('CRUX 과학Ⅰ','환불')"` : `disabled style="${disabledStyle}"`}>취소</button>
+                <button ${(canRefund && !blocked) ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('CRUX 과학Ⅰ','신청')"` : `disabled style="${disabledStyle}"`}>신청</button>
+              </div>
+            </div>`;
+
+        } else if (series === "CRUX 과학Ⅱ") {
+          const blocked = countII === 0;
+          const note = countII === 2
+            ? `<div style="font-size:11px;color:#888;margin-top:4px;">* 신청, 취소하는 경우 과학Ⅰ도 같이 처리됩니다.</div>` : "";
+          const sciPrice = seriesPrices["CRUX 과학Ⅱ"] || 7000;
+          const subText = blocked
+            ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
+            : canRefund
+              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+              : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="font-size:14px;font-weight:600;color:${!blocked?'#1a1a1a':'#bbb'};">CRUX 과학Ⅱ</div>
+                  <div style="font-size:12px;color:#aaa;">${sciPrice.toLocaleString()}원</div>
+                </div>
+                ${subText}${note}
+              </div>
+              <div style="display:flex;gap:6px;flex-shrink:0;">
+                <button ${(canRefund && !blocked) ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('CRUX 과학Ⅱ','환불')"` : `disabled style="${disabledStyle}"`}>취소</button>
+                <button ${(canRefund && !blocked) ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('CRUX 과학Ⅱ','신청')"` : `disabled style="${disabledStyle}"`}>신청</button>
               </div>
             </div>`;
 
