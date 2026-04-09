@@ -639,12 +639,7 @@ async function lookupStudent() {
     document.getElementById("disp_name").textContent  = student.name;
     document.getElementById("disp_ban").textContent   = student.ban + "반";
     document.getElementById("disp_group").textContent = student.group + "그룹";
-    const dispType = document.getElementById("disp_type");
-    const typeLabel = { "🟢": "🟢 사탐+과탐", "🔵": "🔵 과탐+과탐" };
-    if (student.subjectType && typeLabel[student.subjectType]) {
-      dispType.textContent = typeLabel[student.subjectType];
-      dispType.style.display = "";
-    } else dispType.style.display = "none";
+    document.getElementById("disp_type").style.display = "none";
     // 탐구 과목명 뱃지
     const t1el = document.getElementById("disp_t1");
     const t2el = document.getElementById("disp_t2");
@@ -798,8 +793,14 @@ function renderNotice() {
 
         if (series === "CRUX 과학Ⅰ") {
           const blocked = countI === 0;
-          const note = countI === 2
-            ? `<div style="font-size:11px;color:#888;margin-top:4px;">* 신청, 취소하는 경우 과학Ⅱ도 같이 처리됩니다.</div>` : "";
+          const isSet   = countI >= 1 && countII >= 1; // Ⅰ+Ⅱ 세트
+          const t1 = student.subject1 || ""; const t2 = student.subject2 || "";
+          let note = "";
+          if (isSet) {
+            note = `<div style="font-size:11px;color:#888;margin-top:4px;">* ${t1}, ${t2} 동일하게 처리됩니다.</div>`;
+          } else if (countI === 2) {
+            note = `<div style="font-size:11px;color:#888;margin-top:4px;">* ${t1}, ${t2} 동일하게 처리됩니다.</div>`;
+          }
           const subText = blocked
             ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
             : canRefund
@@ -822,8 +823,14 @@ function renderNotice() {
 
         } else if (series === "CRUX 과학Ⅱ") {
           const blocked = countII === 0;
-          const note = countII === 2
-            ? `<div style="font-size:11px;color:#888;margin-top:4px;">* 신청, 취소하는 경우 과학Ⅰ도 같이 처리됩니다.</div>` : "";
+          const isSet   = countI >= 1 && countII >= 1;
+          const t1 = student.subject1 || ""; const t2 = student.subject2 || "";
+          let note = "";
+          if (isSet) {
+            note = `<div style="font-size:11px;color:#888;margin-top:4px;">* ${t1}, ${t2} 동일하게 처리됩니다.</div>`;
+          } else if (countII === 2) {
+            note = `<div style="font-size:11px;color:#888;margin-top:4px;">* ${t1}, ${t2} 동일하게 처리됩니다.</div>`;
+          }
           const sciPrice = seriesPrices["CRUX 과학Ⅱ"] || 7000;
           const subText = blocked
             ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
@@ -942,6 +949,12 @@ function pick(cid, val, btn) {
 function pickSeries(series, val) {
   selections[series] = val;
   touchedSeries.add(series);
+  // Ⅰ+Ⅱ 세트: 하나 변경하면 둘 다 연동
+  const { countI, countII } = getScienceStatus();
+  if (countI >= 1 && countII >= 1) {
+    if (series === "CRUX 과학Ⅰ") { selections["CRUX 과학Ⅱ"] = val; touchedSeries.add("CRUX 과학Ⅱ"); }
+    if (series === "CRUX 과학Ⅱ") { selections["CRUX 과학Ⅰ"] = val; touchedSeries.add("CRUX 과학Ⅰ"); }
+  }
   renderNotice();
 }
 
