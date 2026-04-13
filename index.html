@@ -1622,7 +1622,7 @@ async function toggleProcessed(docId, period, newVal) {
     updates[`unprocessedAtByPeriod.${period}`] = now;
     updates[`processedAtByPeriod.${period}`]   = null;
   }
-  await db.collection("submissions").doc(docId).update(updates);
+  await db.collection("submissionHistory").doc(docId).update(updates);
   loadChanges();
 }
 
