@@ -1383,7 +1383,8 @@ async function loadChanges() {
             const count   = items.length;
             const amount  = price * count * sciMult;
             const firstRound = getFirstRound(items[0].name);
-            const multStr = sciMult > 1 ? `×${sciMult}` : "";
+            const isSciSeries = series === "CRUX 과학Ⅰ" || series === "CRUX 과학Ⅱ" || series === "CIRCUIT 과학Ⅰ";
+            const multStr = isSciSeries ? `×${sciMult}과목` : "";
             const amountStr = price
               ? `<span style="color:${valColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${price.toLocaleString()}원${multStr})</span>`
               : "";
