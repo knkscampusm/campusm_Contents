@@ -685,7 +685,7 @@ async function loadContentsAndPrev() {
   contents     = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   selections   = sDoc.exists ? (sDoc.data().selections || {}) : {};
   refundCutoff = settingDoc.exists ? (settingDoc.data().cutoffDate || null) : null;
-  seriesPrices = priceSnap.exists ? priceSnap.data() : { ...DEFAULT_PRICES };
+  seriesPrices = { ...DEFAULT_PRICES, ...(priceSnap.exists ? priceSnap.data() : {}) };
 }
 
 /* ── STUDENT: render ── */
