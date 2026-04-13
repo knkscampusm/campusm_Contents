@@ -1491,20 +1491,19 @@ async function loadChanges() {
     const sCountII = ((s.subject1||"").includes("Ⅱ")?1:0) + ((s.subject2||"").includes("Ⅱ")?1:0);
 
     let totalAmount = 0;
-    const changeList = Object.entries(s.selections || {})
-      .flatMap(([series, val]) => {
-        if (!s.cutoffDate) return [];
+    // 신청/취소 분리
+    const applyEntries  = Object.entries(s.selections || {}).filter(([,v]) => v !== "취소" && v !== "환불");
+    const cancelEntries = Object.entries(s.selections || {}).filter(([,v]) => v === "취소" || v === "환불");
 
+    function renderGroup(entries, groupLabel, groupColor) {
+      const rows = entries.flatMap(([series, val]) => {
+        if (!s.cutoffDate) return [];
         const isCancel = val === "취소" || val === "환불";
-        const valColor = isCancel ? "#e5534b" : "#2BADA0";
-        const valText  = isCancel ? "취소" : "신청";
         const priceKey = series === "CRUX 과학Ⅰ" ? "CRUX 과학" : series;
         const price    = priceMap[priceKey] || DEFAULT_PRICES[priceKey] || 0;
         const sciMult  = series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ" ? (sCountI || 1)
                        : series === "CRUX 과학Ⅱ" ? (sCountII || 1) : 1;
         const dispNames = getDisplayNames(series).join(" · ");
-
-        // 과학 시리즈 과목명
         let sciSubjects = "";
         if (series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ") {
           const subs = [s.subject1, s.subject2].filter(v => v && v.includes("Ⅰ"));
@@ -1513,8 +1512,6 @@ async function loadChanges() {
           const subs = [s.subject1, s.subject2].filter(v => v && v.includes("Ⅱ"));
           if (subs.length) sciSubjects = ` (${subs.join(", ")})`;
         }
-
-        // 기준일 이후 항목을 월별로 그룹핑
         const monthlyItems = {};
         contents
           .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > s.cutoffDate)
@@ -1524,41 +1521,44 @@ async function loadChanges() {
             if (!monthlyItems[ym]) monthlyItems[ym] = [];
             monthlyItems[ym].push(item);
           });
-
         if (Object.keys(monthlyItems).length === 0) return [];
 
-        return Object.entries(monthlyItems)
-          .sort(([a],[b]) => a.localeCompare(b))
-          .map(([ym, items]) => {
-            const mm      = ym.slice(5,7);
-            const mLabel  = monthNames[mm] || ym;
-            const count   = items.length;
-            const amount  = price * count * sciMult;
-            const firstRound = getFirstRound(items[0].name);
-            const isSciSeries = series === "CRUX 과학Ⅰ" || series === "CRUX 과학Ⅱ" || series === "CIRCUIT 과학Ⅰ";
-            const multStr = isSciSeries ? `×${sciMult}과목` : "";
-            const amountStr = price
-              ? `<span style="color:${valColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${price.toLocaleString()}원${multStr})</span>`
-              : "";
-            const isVisible = visibleMonths.has(ym);
-            totalAmount += isVisible ? (isCancel ? -amount : amount) : 0;
+        const firstRound = getFirstRound(Object.values(monthlyItems)[0][0].name);
+        const isSciSeries = series === "CRUX 과학Ⅰ" || series === "CRUX 과학Ⅱ" || series === "CIRCUIT 과학Ⅰ";
+        const seriesHeader = `
+          <div style="display:flex;align-items:center;gap:5px;font-size:13px;padding:4px 0 2px;">
+            <span style="color:#333;font-weight:600;">${dispNames}</span>
+            <span style="color:#aaa;font-size:12px;">${firstRound}부터</span>
+            ${sciSubjects ? `<span style="color:#888;font-size:12px;">${sciSubjects}</span>` : ""}
+          </div>`;
 
-            // 같은 시리즈의 첫 번째 월이면 헤더 행 추가
-            const isFirstMonth = Object.keys(monthlyItems).sort()[0] === ym;
-            const headerRow = isFirstMonth ? `
-              <div style="display:flex;align-items:center;gap:5px;font-size:13px;padding:6px 0 2px;">
-                <span style="font-weight:700;color:${valColor};">[${valText}]</span>
-                <span style="color:#333;font-weight:600;">${dispNames}</span>
-                <span style="color:#aaa;font-size:12px;">${firstRound}부터</span>
-                ${sciSubjects ? `<span style="color:#888;font-size:12px;">${sciSubjects}</span>` : ""}
-              </div>` : "";
+        const monthRows = Object.entries(monthlyItems).sort(([a],[b]) => a.localeCompare(b)).map(([ym, items]) => {
+          const mm    = ym.slice(5,7);
+          const mLabel = monthNames[mm] || ym;
+          const count  = items.length;
+          const amount = price * count * sciMult;
+          const multStr = isSciSeries ? `×${sciMult}과목` : "";
+          const amountStr = price
+            ? `<span style="color:${groupColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${price.toLocaleString()}원${multStr})</span>`
+            : "";
+          const isVisible = visibleMonths.has(ym);
+          totalAmount += isVisible ? (isCancel ? -amount : amount) : 0;
+          return `<div class="month-row" data-month="${ym}" data-amount="${isCancel?-amount:amount}" style="display:${isVisible?"flex":"none"};align-items:center;gap:8px;font-size:12px;padding:2px 0 2px 8px;">
+            <span style="background:#f0f0ee;color:#666;padding:2px 9px;border-radius:10px;font-weight:600;font-size:11px;">${mLabel}</span>
+            ${amountStr}
+          </div>`;
+        }).join("");
 
-            return `${headerRow}<div class="month-row" data-month="${ym}" data-amount="${isCancel?-amount:amount}" style="display:${isVisible?"flex":"none"};align-items:center;gap:8px;font-size:12px;padding:3px 0 3px 8px;">
-              <span style="background:#f0f0ee;color:#666;padding:2px 9px;border-radius:10px;font-weight:600;font-size:11px;">${mLabel}</span>
-              ${amountStr}
-            </div>`;
-          });
-      }).join("");
+        return [seriesHeader + monthRows];
+      });
+      if (!rows.length) return "";
+      return `<div style="margin-bottom:6px;">
+        <div style="font-weight:700;color:${groupColor};font-size:13px;padding:4px 0 2px;border-bottom:1px solid ${groupColor}20;">[${groupLabel}]</div>
+        ${rows.join("")}
+      </div>`;
+    }
+
+    const changeList = renderGroup(applyEntries, "신청", "#2BADA0") + renderGroup(cancelEntries, "취소", "#e5534b");
 
     const totalColor  = totalAmount < 0 ? "#e5534b" : "#2BADA0";
     const totalStr    = totalAmount !== 0
