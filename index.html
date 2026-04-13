@@ -807,7 +807,7 @@ function renderNotice() {
           const subText = blocked
             ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
             : canRefund
-              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 신청/취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
               : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
           return `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
@@ -837,7 +837,7 @@ function renderNotice() {
           const subText = blocked
             ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
             : canRefund
-              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 신청/취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
               : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
           return `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
@@ -859,7 +859,7 @@ function renderNotice() {
           const subText = blocked
             ? `<div style="font-size:11px;color:#ccc;margin-top:2px;">해당없음</div>`
             : canRefund
-              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+              ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 신청/취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
               : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
           return `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
@@ -889,7 +889,7 @@ function renderNotice() {
           ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
         </div>`;
       const subText = canRefund
-        ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
+        ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 신청/취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
         : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
 
       return `
@@ -1000,6 +1000,8 @@ async function submitSelections() {
     const submitData = {
       studentId: student.id, name: student.name,
       ban: student.ban, group: student.group,
+      subject1: student.subject1 || "",
+      subject2: student.subject2 || "",
       selections: touchedSelections,
       cutoffDate: refundCutoff || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
