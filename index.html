@@ -1483,6 +1483,16 @@ async function loadChanges() {
                        : series === "CRUX 과학Ⅱ" ? (sCountII || 1) : 1;
         const dispNames = getDisplayNames(series).join(" · ");
 
+        // 과학 시리즈 과목명
+        let sciSubjects = "";
+        if (series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ") {
+          const subs = [s.subject1, s.subject2].filter(v => v && v.includes("Ⅰ"));
+          if (subs.length) sciSubjects = ` (${subs.join(", ")})`;
+        } else if (series === "CRUX 과학Ⅱ") {
+          const subs = [s.subject1, s.subject2].filter(v => v && v.includes("Ⅱ"));
+          if (subs.length) sciSubjects = ` (${subs.join(", ")})`;
+        }
+
         // 기준일 이후 항목을 월별로 그룹핑
         const monthlyItems = {};
         contents
@@ -1514,7 +1524,7 @@ async function loadChanges() {
 
             return `<div class="month-row" data-month="${ym}" data-amount="${isCancel?-amount:amount}" style="display:${isVisible?"flex":"none"};align-items:center;gap:6px;font-size:13px;color:#555;padding:3px 0;flex-wrap:wrap;">
               <span style="font-weight:700;color:${valColor};min-width:30px;">[${valText}]</span>
-              <span>${dispNames}</span>
+              <span>${dispNames}<span style="color:#888;font-size:12px;">${sciSubjects}</span></span>
               <span style="color:#aaa;font-size:12px;">${firstRound}부터</span>
               ${amountStr}
               <span style="font-size:11px;background:#f0f0ee;color:#888;padding:2px 7px;border-radius:10px;">${mLabel}</span>
