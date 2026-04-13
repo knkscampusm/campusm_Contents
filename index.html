@@ -1290,27 +1290,31 @@ async function loadChanges() {
 
     let totalAmount = 0;
     const changeList = Object.entries(s.selections || {})
-      .filter(([series]) => !!seriesFirstMap[series])
       .map(([series, val]) => {
         const item     = seriesFirstMap[series];
         const round    = item ? getFirstRound(item.name) + "부터" : "";
         const isCancel = val === "취소" || val === "환불";
         const valColor = isCancel ? "#e5534b" : "#2BADA0";
         const valText  = isCancel ? "취소" : "신청";
-        const price    = priceMap[series] || 0;
-        const count    = seriesCountMap[series] || 0;
 
-        // 과학 콘텐츠는 학생 탐구 과목 수로 배수 계산
+        // 금액 키 매핑 (CRUX 과학Ⅰ은 "CRUX 과학" 키로 저장)
+        const priceKey = series === "CRUX 과학Ⅰ" ? "CRUX 과학" : series;
+        const price    = priceMap[priceKey] || DEFAULT_PRICES[priceKey] || 0;
+
+        // 학생 탐구 과목 수
         const sCountI  = ((s.subject1||"").includes("Ⅰ")?1:0) + ((s.subject2||"").includes("Ⅰ")?1:0);
         const sCountII = ((s.subject1||"").includes("Ⅱ")?1:0) + ((s.subject2||"").includes("Ⅱ")?1:0);
-        const sciMult  = series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ" ? (sCountI || 1)
-                       : series === "CRUX 과학Ⅱ" ? (sCountII || 1)
-                       : 1;
 
-        const amount   = price * count * sciMult;
-        totalAmount   += isCancel ? -amount : amount;
-        const multStr  = sciMult > 1 ? `×${sciMult}` : "";
-        const amountStr = price
+        // 과학은 학생 탐구 수 × 회차 수, 나머지는 회차 수만
+        const sciMult = series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ" ? (sCountI || 1)
+                      : series === "CRUX 과학Ⅱ" ? (sCountII || 1)
+                      : 1;
+        const count   = seriesCountMap[series] || 0;
+        const amount  = price * count * sciMult;
+        totalAmount  += isCancel ? -amount : amount;
+
+        const multStr   = sciMult > 1 ? `×${sciMult}` : "";
+        const amountStr = (price && count)
           ? `<span style="color:${valColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${price.toLocaleString()}원${multStr})</span>`
           : "";
         const dispNames = getDisplayNames(series).join(" · ");
