@@ -1273,10 +1273,30 @@ async function searchStudentStatus() {
 
   const catRows = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
     const color = catColors[cat] || "#888";
+    // 학생 탐구 과목 수
+    const sCountI  = ((stu.subject1||"").includes("Ⅰ")?1:0) + ((stu.subject2||"").includes("Ⅰ")?1:0);
+    const sCountII = ((stu.subject1||"").includes("Ⅱ")?1:0) + ((stu.subject2||"").includes("Ⅱ")?1:0);
+    const isSaTam  = stu.subjectType && stu.subjectType.includes("🟡");
+
     const rows = catGroups[cat].map(series => {
-      const curVal  = subs[series];
-      const hist    = historyMap[series];
+      const curVal    = subs[series];
+      const hist      = historyMap[series];
       const dispNames = getDisplayNames(series).join(" · ");
+
+      // 과학탐구 해당없음 판단
+      let isNA = false;
+      if (cat === "과학탐구") {
+        if (isSaTam) isNA = true;
+        else if (series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ") isNA = sCountI === 0;
+        else if (series === "CRUX 과학Ⅱ") isNA = sCountII === 0;
+      }
+
+      if (isNA) {
+        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f5f5f3;">
+          <span style="font-size:12px;color:#ccc;">[해당 없음]</span>
+          <span style="font-size:13px;color:#ccc;">${dispNames}</span>
+        </div>`;
+      }
 
       const valColor = curVal === "취소" || curVal === "환불" ? "#e5534b" : "#2BADA0";
       const valLabel = (curVal === "환불") ? "취소" : (curVal || "");
