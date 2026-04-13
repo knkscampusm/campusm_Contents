@@ -370,6 +370,18 @@
 
   <!-- 신청/취소 현황 -->
   <div id="tab1" class="tab-pane">
+    <!-- 학번 검색 -->
+    <div class="card">
+      <div style="font-size:13px;color:#888;font-weight:500;margin-bottom:8px;">학번으로 검색</div>
+      <div class="row">
+        <input type="text" id="adminSidInput" placeholder="학번 입력" maxlength="20"
+          style="flex:1;" onkeydown="if(event.key==='Enter') searchStudentStatus()" />
+        <button class="btn btn-primary btn-sm" onclick="searchStudentStatus()" style="padding:10px 18px;">검색</button>
+      </div>
+    </div>
+    <!-- 검색 결과 -->
+    <div id="studentStatusResult" style="display:none;"></div>
+    <!-- 전체 현황 테이블 -->
     <div class="card">
       <div class="row sb" style="margin-bottom:1rem;">
         <div class="section-title" style="margin:0;">전체 현황</div>
@@ -1191,6 +1203,115 @@ function toggleAllCheck() {
   all.forEach(cb => cb.checked = !allChecked);
 }
 
+/* ── ADMIN: 학번 검색 ── */
+async function searchStudentStatus() {
+  const sid = document.getElementById("adminSidInput").value.trim();
+  const el  = document.getElementById("studentStatusResult");
+  if (!sid) { el.style.display = "none"; return; }
+
+  el.style.display = "";
+  el.innerHTML = '<div class="empty">검색 중...</div>';
+
+  const [studentDoc, subDoc, histSnap, cSnap] = await Promise.all([
+    db.collection("students").doc(sid).get(),
+    db.collection("submissions").doc(sid).get(),
+    db.collection("submissionHistory").where("studentId","==",sid).orderBy("updatedAt","desc").get(),
+    db.collection("contents").orderBy("order").get()
+  ]);
+
+  if (!studentDoc.exists) {
+    el.innerHTML = '<div class="card empty">해당 학번을 찾을 수 없습니다.</div>';
+    return;
+  }
+
+  const stu      = studentDoc.data();
+  const subs     = subDoc.exists ? (subDoc.data().selections || {}) : {};
+  const contents = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // 시리즈별 최신 이력 맵 { series: { val, round, updatedAt } }
+  const historyMap = {};
+  histSnap.docs.forEach(d => {
+    const h = d.data();
+    const updatedAt = h.updatedAt?.toDate
+      ? h.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+      : "";
+    Object.entries(h.selections || {}).forEach(([series, val]) => {
+      if (!historyMap[series]) {
+        // 해당 cutoffDate 기준으로 마지막 회차 찾기
+        const cutoff = h.cutoffDate || null;
+        let lastRound = "";
+        if (cutoff) {
+          const seriesItems = contents
+            .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > cutoff)
+            .sort((a,b) => b.order - a.order);
+          if (seriesItems.length) lastRound = getFirstRound(seriesItems[0].name);
+        }
+        historyMap[series] = { val, updatedAt, lastRound };
+      }
+    });
+  });
+
+  // 카테고리 순서
+  const CAT_ORDER  = ["국어","수학","영어","과학탐구"];
+  const catColors  = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
+
+  // 시리즈 → 카테고리 맵
+  const seriesCatMap = {};
+  contents.forEach(item => {
+    const s = getSeriesName(item.name);
+    if (!seriesCatMap[s]) seriesCatMap[s] = item.category || "기타";
+  });
+
+  // 카테고리별 그룹핑
+  const catGroups = {};
+  const allSeries = new Set([...Object.keys(subs), ...Object.keys(historyMap)]);
+  allSeries.forEach(series => {
+    const cat = seriesCatMap[series] || "기타";
+    if (!catGroups[cat]) catGroups[cat] = [];
+    if (!catGroups[cat].includes(series)) catGroups[cat].push(series);
+  });
+
+  const catRows = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
+    const color = catColors[cat] || "#888";
+    const rows = catGroups[cat].map(series => {
+      const curVal  = subs[series];
+      const hist    = historyMap[series];
+      const dispNames = getDisplayNames(series).join(" · ");
+
+      const valColor = curVal === "취소" || curVal === "환불" ? "#e5534b" : "#2BADA0";
+      const valBadge = curVal
+        ? `<span style="font-size:12px;font-weight:700;color:${valColor};">[${curVal}]</span>`
+        : `<span style="font-size:12px;color:#ccc;">[미선택]</span>`;
+
+      const histStr = hist
+        ? `<span style="font-size:11px;color:#aaa;margin-left:6px;">최근: ${hist.lastRound || ""} · ${hist.updatedAt}</span>`
+        : "";
+
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f5f5f3;flex-wrap:wrap;">
+        ${valBadge}
+        <span style="font-size:13px;color:#333;">${dispNames}</span>
+        ${histStr}
+      </div>`;
+    }).join("");
+
+    return `<div style="margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:700;color:${color};padding:4px 0 6px;border-bottom:2px solid ${color};margin-bottom:4px;">${cat}</div>
+      ${rows}
+    </div>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem;flex-wrap:wrap;">
+        <span style="font-size:16px;font-weight:700;">${stu.name || stu.이름 || ""}</span>
+        <span class="badge badge-teal">${stu.ban || stu.반 || ""}반</span>
+        <span class="badge badge-gray">${stu.group || stu.그룹 || ""}그룹</span>
+        <span style="font-size:12px;color:#bbb;">${sid}</span>
+      </div>
+      ${catRows || '<div class="empty">선택 내역이 없습니다.</div>'}
+    </div>`;
+}
+
 /* ── ADMIN: submissions ── */
 async function loadSubmissions() {
   const [cSnap, sSnap] = await Promise.all([
@@ -1468,9 +1589,14 @@ async function toggleProcessed(docId, period, newVal) {
 }
 
 async function saveMemo(docId, period, memo) {
-  await db.collection("submissions").doc(docId).update({
-    [`memoByPeriod.${period}`]: memo
-  });
+  try {
+    await db.collection("submissionHistory").doc(docId).update({
+      [`memoByPeriod.${period}`]: memo
+    });
+    toast("비고 저장됨");
+  } catch(e) {
+    console.error("saveMemo error:", e);
+  }
 }
 
 /* ── ADMIN: excel ── */
