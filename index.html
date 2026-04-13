@@ -1310,6 +1310,10 @@ async function loadChanges() {
                       : series === "CRUX 과학Ⅱ" ? (sCountII || 1)
                       : 1;
         const count   = seriesCountMap[series] || 0;
+
+        // 배부 완료(count=0)이고 round도 없으면 표시 안 함
+        if (count === 0 && !item) return "";
+
         const amount  = price * count * sciMult;
         totalAmount  += isCancel ? -amount : amount;
 
@@ -1324,7 +1328,7 @@ async function loadChanges() {
           ${round ? `<span style="color:#aaa;font-size:12px;">${round}</span>` : ""}
           ${amountStr}
         </div>`;
-      }).join("");
+      }).filter(Boolean).join("");
 
     const totalColor  = totalAmount < 0 ? "#e5534b" : "#2BADA0";
     const totalStr    = totalAmount !== 0
