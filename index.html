@@ -331,6 +331,13 @@
       <div id="cutoffMsg" class="msg"></div>
     </div>
     <div class="card">
+      <div class="section-title">변경처리 월별 표시 설정</div>
+      <p style="font-size:12px;color:#aaa;margin-bottom:10px;">체크된 월만 변경처리 탭에 표시됩니다. 저장 후 새로고침해도 유지됩니다.</p>
+      <div id="monthSettingArea" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;"></div>
+      <button class="btn btn-primary btn-sm" onclick="saveMonthSetting()">저장</button>
+      <div id="monthSettingMsg" class="msg" style="margin-top:6px;"></div>
+    </div>
+    <div class="card">
       <div class="section-title">콘텐츠 추가</div>
       <div class="add-grid">
         <div class="span2">
@@ -391,7 +398,6 @@
         <div class="section-title" style="margin:0;">변경 처리 현황</div>
         <button id="filterBtn" onclick="toggleFilter()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1.5px solid #ED0081;background:#fff;color:#ED0081;cursor:pointer;font-weight:600;">미처리만 보기</button>
       </div>
-      <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;"></div>
       <div id="changeList"><div class="empty">데이터를 불러오는 중...</div></div>
     </div>
   </div>
@@ -1039,6 +1045,7 @@ async function adminLogin() {
     document.getElementById("adminView").style.display   = "";
     loadCutoffDate();
     loadAdminContents();
+    loadMonthSetting();
     loadSubmissions();
   } catch {
     setMsg("loginMsg", "이메일 또는 비밀번호를 확인해주세요.", "error");
@@ -1234,14 +1241,42 @@ function toggleFilter() {
 }
 
 function toggleMonth(ym, checked) {
-  if (!window._visibleMonths) window._visibleMonths = new Set();
-  if (checked) window._visibleMonths.add(ym);
-  else         window._visibleMonths.delete(ym);
+  // 변경처리 탭에서 직접 토글 (체크박스 없음, DOM 직접 수정 불필요)
+}
 
-  // 해당 월 행 표시/숨김 (리로드 없이)
-  document.querySelectorAll(`.month-row[data-month="${ym}"]`).forEach(el => {
-    el.style.display = checked ? "flex" : "none";
+async function loadMonthSetting() {
+  const monthNames = { "01":"1월","02":"2월","03":"3월","04":"4월","05":"5월","06":"6월","07":"7월","08":"8월","09":"9월","10":"10월","11":"11월","12":"12월" };
+  const doc = await db.collection("settings").doc("monthFilter").get();
+  const saved = doc.exists ? (doc.data().visibleMonths || []) : null;
+
+  // 전체 월 목록 (contents 기반)
+  const snap = await db.collection("contents").get();
+  const allMonths = new Set();
+  snap.docs.forEach(d => {
+    const dd = d.data().deliveryDate;
+    if (dd) allMonths.add(dd.slice(0,7));
   });
+  const sortedMonths = Array.from(allMonths).sort();
+  const visibleSet   = new Set(saved || sortedMonths);
+
+  const area = document.getElementById("monthSettingArea");
+  if (!area) return;
+  area.innerHTML = sortedMonths.map(m => {
+    const mm      = m.slice(5,7);
+    const label   = monthNames[mm] || m;
+    const checked = visibleSet.has(m);
+    return `<label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#555;cursor:pointer;padding:4px 0;">
+      <input type="checkbox" data-month="${m}" ${checked?"checked":""} style="accent-color:#ED0081;width:15px;height:15px;"> ${label}
+    </label>`;
+  }).join("");
+}
+
+async function saveMonthSetting() {
+  const checks = document.querySelectorAll("#monthSettingArea input[type=checkbox]");
+  const visibleMonths = Array.from(checks).filter(cb => cb.checked).map(cb => cb.dataset.month);
+  await db.collection("settings").doc("monthFilter").set({ visibleMonths });
+  setMsg("monthSettingMsg", "✓ 저장되었습니다", "success");
+  setTimeout(() => setMsg("monthSettingMsg", ""), 2000);
 }
 
 async function loadChanges() {
@@ -1288,39 +1323,21 @@ async function loadChanges() {
   const priceDoc2 = await db.collection("settings").doc("prices").get();
   const priceMap  = priceDoc2.exists ? priceDoc2.data() : { ...DEFAULT_PRICES };
 
-  // 월별 체크박스 상태
-  const visibleMonths = window._visibleMonths || new Set();
-
-  // 전체 월 목록 수집
-  const allMonths = new Set();
-  changed.forEach(s => {
-    contents.forEach(item => {
-      if (item.deliveryDate && s.cutoffDate && item.deliveryDate > s.cutoffDate) {
-        allMonths.add(item.deliveryDate.slice(0, 7)); // "2026-04"
-      }
-    });
-  });
-
-  // 처음 로드 시 전체 월 활성화
-  if (!window._monthsInited) {
-    allMonths.forEach(m => visibleMonths.add(m));
-    window._visibleMonths  = visibleMonths;
-    window._monthsInited   = true;
-  }
-
-  // 월 체크박스 렌더링
+  // Firestore에서 저장된 월 설정 로드
   const monthNames = { "01":"1월","02":"2월","03":"3월","04":"4월","05":"5월","06":"6월","07":"7월","08":"8월","09":"9월","10":"10월","11":"11월","12":"12월" };
-  const mfEl = document.getElementById("monthFilters");
-  const sortedMonths = Array.from(allMonths).sort();
-  mfEl.innerHTML = sortedMonths.map(m => {
-    const mm      = m.slice(5, 7);
-    const label   = monthNames[mm] || m;
-    const checked = visibleMonths.has(m);
-    return `<label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#555;cursor:pointer;">
-      <input type="checkbox" ${checked?"checked":""} style="accent-color:#ED0081;width:15px;height:15px;"
-        onchange="toggleMonth('${m}', this.checked)"> ${label}
-    </label>`;
-  }).join("");
+  const monthSettingDoc = await db.collection("settings").doc("monthFilter").get();
+  const savedMonths     = monthSettingDoc.exists ? (monthSettingDoc.data().visibleMonths || []) : null;
+  const visibleMonths   = new Set(savedMonths || []);
+
+  // 저장된 설정 없으면 전체 월 표시
+  if (!savedMonths) {
+    changed.forEach(s => {
+      contents.forEach(item => {
+        if (item.deliveryDate && s.cutoffDate && item.deliveryDate > s.cutoffDate)
+          visibleMonths.add(item.deliveryDate.slice(0, 7));
+      });
+    });
+  }
 
   el.innerHTML = changed.map(s => {
     const period = s.cutoffDate || "기준일 미설정";
@@ -1480,7 +1497,7 @@ function switchTab(idx) {
   document.querySelectorAll(".tab-pane").forEach((p,i) => p.classList.toggle("active", i === idx));
   localStorage.setItem("adminTab", idx);
   if (idx === 1) loadSubmissions();
-  if (idx === 2) { window._monthsInited = false; loadChanges(); }
+  if (idx === 2) loadChanges();
 }
 
 /* ── AUTH 상태 유지 (F5 후 관리자 유지) ── */
@@ -1492,6 +1509,7 @@ auth.onAuthStateChanged(user => {
     switchTab(savedTab);
     loadCutoffDate();
     loadAdminContents();
+    loadMonthSetting();
   } else {
     document.getElementById("adminView").style.display   = "none";
     document.getElementById("studentView").style.display = "";
