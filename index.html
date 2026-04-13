@@ -1116,7 +1116,7 @@ async function loadAdminContents() {
     db.collection("contents").orderBy("order").get(),
     db.collection("settings").doc("prices").get()
   ]);
-  const adminPrices = priceDoc.exists ? priceDoc.data() : { ...DEFAULT_PRICES };
+  const adminPrices = { ...DEFAULT_PRICES, ...(priceDoc.exists ? priceDoc.data() : {}) };
   const el   = document.getElementById("adminContentList");
   if (snap.empty) { el.innerHTML = '<div class="empty">등록된 콘텐츠가 없습니다</div>'; return; }
 
@@ -1454,7 +1454,7 @@ async function loadChanges() {
   // submissionHistory는 이미 updatedAt desc 정렬
 
   const priceDoc2 = await db.collection("settings").doc("prices").get();
-  const priceMap  = priceDoc2.exists ? priceDoc2.data() : { ...DEFAULT_PRICES };
+  const priceMap  = { ...DEFAULT_PRICES, ...(priceDoc2.exists ? priceDoc2.data() : {}) };
 
   // 전체 월 목록 수집
   const allMonths = new Set();
