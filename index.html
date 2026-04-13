@@ -800,9 +800,7 @@ function renderNotice() {
           const isSet   = countI >= 1 && countII >= 1; // Ⅰ+Ⅱ 세트
           const t1 = student.subject1 || ""; const t2 = student.subject2 || "";
           let note = "";
-          if (isSet) {
-            note = `<div style="font-size:11px;color:#888;margin-top:4px;">* ${t1}, ${t2} 동일하게 처리됩니다.</div>`;
-          } else if (countI === 2) {
+          if (canRefund && (isSet || countI === 2)) {
             note = `<div style="font-size:11px;color:#888;margin-top:4px;">* ${t1}, ${t2} 동일하게 처리됩니다.</div>`;
           }
           const subText = blocked
@@ -830,9 +828,7 @@ function renderNotice() {
           const isSet   = countI >= 1 && countII >= 1;
           const t1 = student.subject1 || ""; const t2 = student.subject2 || "";
           let note = "";
-          if (isSet) {
-            note = `<div style="font-size:11px;color:#888;margin-top:4px;">* ${t1}, ${t2} 동일하게 처리됩니다.</div>`;
-          } else if (countII === 2) {
+          if (canRefund && (isSet || countII === 2)) {
             note = `<div style="font-size:11px;color:#888;margin-top:4px;">* ${t1}, ${t2} 동일하게 처리됩니다.</div>`;
           }
           const sciPrice = seriesPrices["CRUX 과학Ⅱ"] || 7000;
