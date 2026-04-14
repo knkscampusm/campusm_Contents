@@ -1618,27 +1618,6 @@ async function loadSubmissions() {
   const cutoff   = settingDoc.exists ? settingDoc.data().cutoffDate : null;
   const contents = cols;
 
-  // ── 전체 현황 테이블 ──
-  document.getElementById("tblHead").innerHTML =
-    `<th>학번</th><th>이름</th><th>반</th><th>그룹</th>` +
-    cols.map(c => `<th>${c.name}</th>`).join("");
-
-  const body = document.getElementById("tblBody");
-  if (!subs.length) {
-    body.innerHTML = `<tr><td colspan="${4 + cols.length}" style="text-align:center;color:#ccc;padding:1.5rem;">데이터가 없습니다</td></tr>`;
-  } else {
-    body.innerHTML = subs.map(s => `
-      <tr>
-        <td>${s.studentId}</td><td>${s.name}</td><td>${s.ban}</td><td>${s.group}</td>
-        ${cols.map(c => {
-          const v = s.selections?.[c.id];
-          if (v === "환불") return `<td class="tag-r">취소</td>`;
-          if (v === "신청") return `<td class="tag-a">신청</td>`;
-          return `<td style="color:#ddd;">-</td>`;
-        }).join("")}
-      </tr>`).join("");
-  }
-
   // ── 신청/취소 전체 이력 테이블 ──
   // 학생+기준일 단위 합산
   const rawDocs = histSnap.docs
