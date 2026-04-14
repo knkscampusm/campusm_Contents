@@ -308,6 +308,10 @@
     </div>
     <div id="inputGuide" style="font-size:13px;color:#2BADA0;text-align:center;margin-top:10px;font-weight:500;">학생증을 태깅해주세요</div>
     <div id="lookupMsg" class="msg"></div>
+    <div style="margin-top:14px;padding:12px 14px;background:#e4f5f3;border-radius:10px;line-height:1.7;">
+      <div style="font-size:14px;font-weight:700;color:#2BADA0;" id="refundDateGuide"></div>
+      <div style="font-size:13px;color:#2BADA0;margin-top:4px;">위클리팩에 동봉되는 콘텐츠에 대한 신청/취소이며,<br>지난 회차에 대한 개별 구매의 경우, 수납처에 별도로 말씀해주셔야합니다.</div>
+    </div>
   </div>
 
   <div id="studentInfoCard" class="card" style="display:none;">
@@ -430,15 +434,25 @@
       <div class="row sb" style="margin-bottom:0.75rem;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <div class="section-title" style="margin:0;">변경 처리 현황</div>
-          <div id="changeCount" style="font-size:12px;color:#aaa;"></div>
+          <div id="changeCount"></div>
         </div>
         <button id="filterBtn" onclick="toggleFilter()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1.5px solid #ED0081;background:#fff;color:#ED0081;cursor:pointer;font-weight:600;">미처리만 보기</button>
       </div>
-      <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:0.875rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.875rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;flex-wrap:wrap;">
+        <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0;"></div>
+        <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
+          <input type="text" id="changeSearchInput" placeholder="학번 검색" maxlength="20"
+            style="padding:4px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fafafa;outline:none;width:110px;"
+            oninput="searchChangeCard(this.value)" />
+        </div>
+      </div>
       <!-- 학생 네비게이션 -->
       <div id="cardNav" style="display:none;align-items:center;justify-content:space-between;margin-bottom:0.75rem;padding:8px 12px;background:#f8f8f6;border-radius:10px;">
         <button onclick="navCard(-1)" style="padding:5px 12px;font-size:13px;font-weight:700;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">‹</button>
-        <span id="cardNavLabel" style="font-size:13px;color:#555;font-weight:600;"></span>
+        <div style="text-align:center;">
+          <div id="cardNavName" style="font-size:13px;color:#1a1a1a;font-weight:700;"></div>
+          <div id="cardNavCount" style="font-size:11px;color:#ED0081;font-weight:600;margin-top:1px;"></div>
+        </div>
         <button onclick="navCard(1)" style="padding:5px 12px;font-size:13px;font-weight:700;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">›</button>
       </div>
       <div id="changeList"><div class="empty">데이터를 불러오는 중...</div></div>
@@ -464,6 +478,48 @@
     <div id="loginMsg" class="msg" style="margin-bottom:10px;"></div>
     <button class="btn btn-primary btn-full" onclick="adminLogin()">로그인</button>
     <button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="closeModal()">취소</button>
+  </div>
+</div>
+
+<!-- 최종 저장 확인 모달 -->
+<div id="confirmModal" class="overlay">
+  <div class="modal" style="max-width:440px;max-height:90vh;overflow-y:auto;">
+    <h2 style="font-size:16px;margin-bottom:1rem;">신청/취소 확인</h2>
+
+    <!-- 학생 정보 -->
+    <div id="cm_studentInfo" style="background:#f8f8f6;border-radius:10px;padding:10px 14px;margin-bottom:1rem;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+
+    <!-- 변경 이력 -->
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px;">변경 내역</div>
+      <div id="cm_changeList" style="border:1px solid #f0f0ee;border-radius:10px;padding:10px 14px;"></div>
+    </div>
+
+    <!-- 기준일 안내 -->
+    <div id="cm_dateNotice" style="font-size:12px;color:#888;line-height:1.7;margin-bottom:1rem;padding:10px 14px;background:#f8f8f6;border-radius:10px;"></div>
+
+    <!-- 결제 방법 (신청 있는 경우만) -->
+    <div id="cm_paySection" style="display:none;margin-bottom:1rem;">
+      <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">결제 방법 선택</div>
+      <div style="display:flex;gap:8px;">
+        <button id="cm_payParent" onclick="selectPayment('학부모')"
+          style="flex:1;padding:11px;font-size:14px;font-weight:600;border-radius:10px;cursor:pointer;border:1.5px solid #ddd;background:#fafafa;color:#888;transition:all 0.15s;">학부모</button>
+        <button id="cm_payStudent" onclick="selectPayment('학생')"
+          style="flex:1;padding:11px;font-size:14px;font-weight:600;border-radius:10px;cursor:pointer;border:1.5px solid #ddd;background:#fafafa;color:#888;transition:all 0.15s;">학생</button>
+      </div>
+    </div>
+
+    <!-- 취소만인 경우 안내 -->
+    <div id="cm_cancelOnlyNotice" style="display:none;font-size:13px;color:#e5534b;padding:10px 14px;background:#fef3f2;border-radius:10px;margin-bottom:1rem;font-weight:500;">
+      결제 방법에 따라 별도 환불 안내드립니다.
+    </div>
+
+    <div id="cm_confirmMsg" class="msg" style="margin-bottom:8px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="closeConfirmModal()" style="flex:1;padding:13px;font-size:15px;font-weight:600;border:1.5px solid #ddd;border-radius:10px;background:#fff;color:#888;cursor:pointer;">취소</button>
+      <button id="cm_confirmBtn" onclick="doSubmit()"
+        style="flex:2;padding:13px;font-size:15px;font-weight:700;border:none;border-radius:10px;background:#ED0081;color:#fff;cursor:pointer;">확인</button>
+    </div>
   </div>
 </div>
 
@@ -684,6 +740,13 @@ async function lookupStudent() {
     if (student.subject2) { t2el.textContent = student.subject2; t2el.style.display = ""; } else t2el.style.display = "none";
     document.getElementById("studentInfoCard").style.display = "";
     await loadContentsAndPrev();
+    // 학번 카드 기준일 안내 업데이트
+    const guideEl = document.getElementById("refundDateGuide");
+    if (guideEl) {
+      guideEl.textContent = refundCutoff
+        ? `${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다`
+        : "";
+    }
     renderNotice();
     renderContents();
   } catch(err) {
@@ -923,17 +986,13 @@ function renderNotice() {
     </div>`).join("");
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-      <div style="width:8px;height:8px;border-radius:50%;background:#2BADA0;flex-shrink:0;"></div>
-      <span style="font-size:13px;font-weight:600;color:#2BADA0;">
-        ${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다
-      </span>
-    </div>
     <div>${allRows}</div>
     <div style="margin-top:1.25rem;">
-      <div style="font-size:12px;color:#aaa;text-align:center;margin-bottom:4px;">신청/취소 선택 후 "최종 저장" 버튼 눌러야 반영됩니다</div>
-      <div style="font-size:11px;color:#ccc;text-align:center;line-height:1.6;margin-bottom:8px;">위클리팩에 동봉되는 콘텐츠에 대한 신청/취소이며,<br>개별 구매의 경우, 수납처에 별도로 말씀해주셔야합니다.</div>
-      <button id="submitBtn" onclick="submitSelections()" style="width:100%;padding:14px;font-size:16px;font-weight:700;background:#ED0081;color:#fff;border:none;border-radius:10px;cursor:pointer;letter-spacing:0.03em;">최종 저장</button>
+      <div style="font-size:12px;color:#aaa;text-align:center;margin-bottom:8px;">신청/취소 선택 후 "최종 저장" 버튼 눌러야 반영됩니다</div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="resetStudentView()" style="flex:1;padding:14px;font-size:16px;font-weight:700;background:#fff;color:#aaa;border:1.5px solid #ddd;border-radius:10px;cursor:pointer;">취소</button>
+        <button id="submitBtn" onclick="openConfirmModal()" style="flex:2;padding:14px;font-size:16px;font-weight:700;background:#ED0081;color:#fff;border:none;border-radius:10px;cursor:pointer;letter-spacing:0.03em;">최종 저장</button>
+      </div>
       <div id="submitMsg" class="msg"></div>
     </div>
   `;
@@ -972,6 +1031,8 @@ function resetStudentView() {
   document.getElementById("studentInfoCard").style.display = "none";
   document.getElementById("refundNotice").style.display    = "none";
   document.getElementById("contentsSection").style.display = "none";
+  const guideEl2 = document.getElementById("refundDateGuide");
+  if (guideEl2) guideEl2.textContent = "";
   document.getElementById("inputGuide").textContent = "학생증을 태깅해주세요";
   document.getElementById("inputGuide").style.color = "#2BADA0";
   document.getElementById("inputGuide").style.fontSize = "13px";
@@ -979,21 +1040,115 @@ function resetStudentView() {
   setMsg("lookupMsg", "");
 }
 
-async function submitSelections() {
+let _selectedPayment = "";
+
+function selectPayment(val) {
+  _selectedPayment = val;
+  const pEl = document.getElementById("cm_payParent");
+  const sEl = document.getElementById("cm_payStudent");
+  if (!pEl || !sEl) return;
+  [pEl, sEl].forEach(b => {
+    b.style.background = "#fafafa";
+    b.style.color = "#888";
+    b.style.borderColor = "#ddd";
+  });
+  const target = val === "학부모" ? pEl : sEl;
+  target.style.background = "#e4f5f3";
+  target.style.color = "#2BADA0";
+  target.style.borderColor = "#2BADA0";
+}
+
+function openConfirmModal() {
   if (!student) return;
-  const btn = document.getElementById("submitBtn");
+
+  // 변경된 항목 수집
+  const touchedSelections = {};
+  touchedSeries.forEach(series => {
+    if (selections[series]) touchedSelections[series] = selections[series];
+  });
+
+  if (Object.keys(touchedSelections).length === 0) {
+    setMsg("submitMsg", "변경한 콘텐츠가 없습니다.", "error");
+    return;
+  }
+
+  setMsg("submitMsg", "");
+  _selectedPayment = "";
+
+  // 학생 정보
+  const infoEl = document.getElementById("cm_studentInfo");
+  infoEl.innerHTML = `
+    <span style="font-size:16px;font-weight:700;">${student.name}</span>
+    <span class="badge badge-teal">${student.ban}반</span>
+    <span class="badge badge-gray">${student.group}그룹</span>
+    ${student.subject1 ? `<span class="badge" style="background:#e8f5e9;color:#388e3c;">${student.subject1}</span>` : ""}
+    ${student.subject2 ? `<span class="badge" style="background:#e8f5e9;color:#388e3c;">${student.subject2}</span>` : ""}
+  `;
+
+  // 변경 이력
+  const applyList = Object.entries(touchedSelections).filter(([,v]) => v !== "취소" && v !== "환불");
+  const cancelList = Object.entries(touchedSelections).filter(([,v]) => v === "취소" || v === "환불");
+  const hasApply = applyList.length > 0;
+  const hasCancel = cancelList.length > 0;
+
+  let listHtml = "";
+  if (hasApply) {
+    listHtml += `<div style="font-size:12px;font-weight:700;color:#2BADA0;margin-bottom:4px;">[신청]</div>`;
+    listHtml += applyList.map(([s]) => `<div style="font-size:13px;padding:3px 0;border-bottom:1px solid #f5f5f3;">${s}</div>`).join("");
+  }
+  if (hasCancel) {
+    listHtml += `<div style="font-size:12px;font-weight:700;color:#aaa;margin-top:${hasApply?'10px':'0'};margin-bottom:4px;">[취소]</div>`;
+    listHtml += cancelList.map(([s]) => `<div style="font-size:13px;padding:3px 0;border-bottom:1px solid #f5f5f3;color:#aaa;text-decoration:line-through;">${s}</div>`).join("");
+  }
+  document.getElementById("cm_changeList").innerHTML = listHtml;
+
+  // 기준일 안내
+  const dateEl = document.getElementById("cm_dateNotice");
+  if (refundCutoff) {
+    dateEl.innerHTML = `<b style="color:#2BADA0;">${formatDateKR(refundCutoff)} 이후</b> 콘텐츠부터 적용됩니다.<br>이전 콘텐츠의 경우 수납처 방문하여 개별 결제 후 수령(재고있음에 한함)`;
+  } else {
+    dateEl.textContent = "";
+  }
+
+  // 결제 방법 / 취소 안내
+  document.getElementById("cm_paySection").style.display        = hasApply ? "" : "none";
+  document.getElementById("cm_cancelOnlyNotice").style.display  = (!hasApply && hasCancel) ? "" : "none";
+
+  // 결제 버튼 초기화
+  ["cm_payParent","cm_payStudent"].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.style.background="#fafafa"; b.style.color="#888"; b.style.borderColor="#ddd"; }
+  });
+
+  document.getElementById("cm_confirmMsg").textContent = "";
+  document.getElementById("confirmModal").classList.add("open");
+}
+
+function closeConfirmModal() {
+  document.getElementById("confirmModal").classList.remove("open");
+}
+
+async function doSubmit() {
+  if (!student) return;
+
+  // 신청 항목이 있는데 결제 방법 미선택
+  const touchedSelections = {};
+  touchedSeries.forEach(series => {
+    if (selections[series]) touchedSelections[series] = selections[series];
+  });
+  const hasApply = Object.values(touchedSelections).some(v => v !== "취소" && v !== "환불");
+  if (hasApply && !_selectedPayment) {
+    document.getElementById("cm_confirmMsg").textContent = "결제 방법을 선택해주세요.";
+    document.getElementById("cm_confirmMsg").className = "msg error";
+    return;
+  }
+
+  const btn = document.getElementById("cm_confirmBtn");
   btn.disabled = true;
-  setMsg("submitMsg", "저장 중...", "loading");
+  document.getElementById("cm_confirmMsg").textContent = "저장 중...";
+  document.getElementById("cm_confirmMsg").className = "msg loading";
+
   try {
-    const touchedSelections = {};
-    touchedSeries.forEach(series => {
-      if (selections[series]) touchedSelections[series] = selections[series];
-    });
-    if (Object.keys(touchedSelections).length === 0) {
-      setMsg("submitMsg", "변경한 콘텐츠가 없습니다.", "error");
-      btn.disabled = false;
-      return;
-    }
     const submitData = {
       studentId: student.id, name: student.name,
       ban: student.ban, group: student.group,
@@ -1001,6 +1156,7 @@ async function submitSelections() {
       subject2: student.subject2 || "",
       selections: touchedSelections,
       cutoffDate: refundCutoff || null,
+      paymentMethod: _selectedPayment || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     await db.collection("submissions").doc(student.id).set({
@@ -1011,11 +1167,13 @@ async function submitSelections() {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     await db.collection("submissionHistory").add(submitData);
+    closeConfirmModal();
     toast("✓ 저장되었습니다");
-    setTimeout(() => resetStudentView(), 1500);
+    setTimeout(() => resetStudentView(), 1200);
   } catch(err) {
-    setMsg("submitMsg", "저장 실패: " + err.message, "error");
-    console.error("submitSelections error:", err);
+    document.getElementById("cm_confirmMsg").textContent = "저장 실패: " + err.message;
+    document.getElementById("cm_confirmMsg").className = "msg error";
+    console.error("doSubmit error:", err);
   } finally {
     btn.disabled = false;
   }
@@ -1407,10 +1565,7 @@ async function loadChanges() {
     const period = s.cutoffDate || "기준일 미설정";
     return !(s.processedByPeriod && s.processedByPeriod[period]);
   }).length;
-  const countEl = document.getElementById("changeCount");
-  if (countEl) {
-    countEl.innerHTML = `총 <b>${totalCount}</b>건 중 미처리 <b style="color:#ED0081;">${unprocessedCount}</b>건`;
-  }
+  // 카운트는 네비게이션에 표시됨
 
   if (!changed.length) {
     el.innerHTML = `<div class="empty">${_showOnlyUnprocessed ? "미처리 내역이 없습니다 🎉" : "변경 내역이 없습니다"}</div>`;
@@ -1451,11 +1606,14 @@ async function loadChanges() {
   function updateCardNav() {
     const cards = el.querySelectorAll(".student-card");
     const nav   = document.getElementById("cardNav");
-    const label = document.getElementById("cardNavLabel");
+    const nameEl  = document.getElementById("cardNavName");
+    const countEl2 = document.getElementById("cardNavCount");
     if (!cards.length) { nav.style.display = "none"; return; }
     nav.style.display = "flex";
     cards.forEach((c, i) => c.style.display = i === _currentCardIdx ? "" : "none");
-    label.textContent = `${cards[_currentCardIdx].dataset.name || ""} (${_currentCardIdx + 1} / ${cards.length})`;
+    const cur = cards[_currentCardIdx];
+    if (nameEl)  nameEl.textContent  = `${cur.dataset.name || ""} (${_currentCardIdx + 1} / ${cards.length})`;
+    if (countEl2) countEl2.textContent = `미처리 ${unprocessedCount}건`;
   }
 
   window.navCard = function(dir) {
@@ -1553,7 +1711,7 @@ async function loadChanges() {
       : "";
 
     return `
-      <div class="student-card" data-name="${s.name}" style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};display:none;">
+      <div class="student-card" data-name="${s.name}" data-sid="${s.studentId}" style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};display:none;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
           <div style="flex:1;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
@@ -1584,6 +1742,33 @@ async function loadChanges() {
       </div>`;
   }).join("");
   updateCardNav();
+}
+
+function searchChangeCard(val) {
+  const changeList = document.getElementById("changeList");
+  const cards = changeList.querySelectorAll(".student-card");
+  if (!cards.length) return;
+  const q = val.trim();
+  if (!q) {
+    // 검색어 없으면 네비게이션 모드로 복귀
+    const nav = document.getElementById("cardNav");
+    nav.style.display = "flex";
+    cards.forEach((c, i) => { c.style.display = i === 0 ? "" : "none"; });
+    if (window._currentCardIdxRef !== undefined) window._currentCardIdxRef[0] = 0;
+    const nameEl = document.getElementById("cardNavName");
+    const countEl2 = document.getElementById("cardNavCount");
+    if (nameEl) nameEl.textContent = `${cards[0].dataset.name || ""} (1 / ${cards.length})`;
+    return;
+  }
+  // 검색어 있으면 일치하는 카드만 표시, 네비게이션 숨김
+  document.getElementById("cardNav").style.display = "none";
+  let found = false;
+  cards.forEach(c => {
+    const sid = c.dataset.sid || "";
+    const match = sid.includes(q);
+    c.style.display = match ? "" : "none";
+    if (match) found = true;
+  });
 }
 
 async function toggleProcessed(docId, period, newVal) {
