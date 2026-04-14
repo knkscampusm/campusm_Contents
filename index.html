@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>의대관 콘텐츠 신청/취소</title>
+  <title>의대관 위클리팩 신청 / 취소</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -299,6 +300,10 @@
      STUDENT VIEW
 ══════════════════════════════ -->
 <div id="studentView" class="main">
+
+  <div style="padding:1rem 0.25rem 0.5rem;">
+    <div style="font-size:22px;font-weight:800;color:#1a1a1a;letter-spacing:-0.3px;">위클리팩 신청 / 취소</div>
+  </div>
 
   <div class="card">
     <div style="font-size:13px;color:#888;font-weight:500;margin-bottom:8px;">학번 입력</div>
@@ -1109,15 +1114,16 @@ function openConfirmModal() {
 
   function renderSeriesRow(series, isCancel) {
     const { round, deliveryDate, price } = getSeriesInfo(series);
-    const color = isCancel ? "#aaa" : "#1a1a1a";
-    const strikeStyle = "";  // 모달에서는 취소선 없음
-    const priceStr = price ? `<span style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</span>` : "";
+    const nameColor  = "#1a1a1a";
+    const priceColor = "#aaa";
+    const roundColor = "#2BADA0";
+    const priceStr = price ? `<span style="font-size:12px;color:${priceColor};">${price.toLocaleString()}원</span>` : "";
     const roundStr = round
-      ? `<span style="font-size:11px;color:${isCancel?'#ccc':'#2BADA0'};">${round}부터${deliveryDate ? " · 다음 배부일: " + deliveryDate : ""}</span>`
+      ? `<span style="font-size:11px;color:${roundColor};">${round}부터${deliveryDate ? " · 다음 배부일: " + deliveryDate : ""}</span>`
       : "";
     return `<div style="padding:7px 0;border-bottom:1px solid #f5f5f3;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:14px;font-weight:600;color:${color};${strikeStyle}">${series}</span>
+        <span style="font-size:14px;font-weight:600;color:${nameColor};">${series}</span>
         ${priceStr}
       </div>
       ${roundStr ? `<div style="margin-top:2px;">${roundStr}</div>` : ""}
@@ -1130,7 +1136,7 @@ function openConfirmModal() {
     listHtml += applyList.map(([s]) => renderSeriesRow(s, false)).join("");
   }
   if (hasCancel) {
-    listHtml += `<div style="font-size:12px;font-weight:700;color:#aaa;margin-top:${hasApply?'10px':'0'};margin-bottom:4px;">[취소]</div>`;
+    listHtml += `<div style="font-size:12px;font-weight:700;color:#e5534b;margin-top:${hasApply?'10px':'0'};margin-bottom:4px;">[취소]</div>`;
     listHtml += cancelList.map(([s]) => renderSeriesRow(s, true)).join("");
   }
   document.getElementById("cm_changeList").innerHTML = listHtml;
