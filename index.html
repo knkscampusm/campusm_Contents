@@ -228,21 +228,30 @@
     .tag-a { color: #2BADA0; font-weight: 600; }
 
     /* ── TOGGLE SWITCH ── */
-    .toggle-wrap { display:flex; align-items:center; gap:6px; flex-shrink:0; }
-    .toggle-label { font-size:12px; font-weight:600; }
+    .toggle-wrap { display:flex; align-items:center; flex-shrink:0; }
     .toggle-track {
-      position:relative; width:52px; height:26px; border-radius:13px;
-      cursor:pointer; transition:background 0.2s;
+      position:relative; width:80px; height:28px; border-radius:14px;
+      cursor:pointer; transition:background 0.2s; overflow:hidden;
     }
     .toggle-track.disabled { opacity:0.3; cursor:not-allowed; pointer-events:none; }
     .toggle-thumb {
-      position:absolute; top:3px; width:20px; height:20px; border-radius:50%;
-      background:#fff; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2);
+      position:absolute; top:3px; width:22px; height:22px; border-radius:50%;
+      background:#fff; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.25);
+      z-index:2;
     }
+    .toggle-text-apply, .toggle-text-cancel {
+      position:absolute; top:50%; transform:translateY(-50%);
+      font-size:11px; font-weight:700; letter-spacing:0.02em;
+      color:#fff; pointer-events:none; z-index:1; transition:opacity 0.2s;
+    }
+    .toggle-text-apply  { right:7px; }
+    .toggle-text-cancel { left:7px; }
     .toggle-apply  { background:#2BADA0; }
-    .toggle-cancel { background:#e5534b; }
-    .toggle-apply  .toggle-thumb { left:29px; }
+    .toggle-cancel { background:#aaa; }
+    .toggle-apply  .toggle-thumb { left:55px; }
     .toggle-cancel .toggle-thumb { left:3px; }
+    .toggle-apply  .toggle-text-cancel { opacity:0; }
+    .toggle-cancel .toggle-text-apply  { opacity:0; }
 
     /* ── MISC ── */
     .section-title { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 0.875rem; }
@@ -731,11 +740,11 @@ function makeToggle(series, sel, canClick) {
   const nextVal = isCancel ? "신청" : "환불";
   const onclick = canClick ? `onclick="pickSeries('${series}','${nextVal}')"` : "";
   return `<div class="toggle-wrap">
-    <span class="toggle-label" style="color:#2BADA0;">신청</span>
     <div class="toggle-track ${trackClass} ${dis}" ${onclick}>
       <div class="toggle-thumb"></div>
+      <span class="toggle-text-apply">신청</span>
+      <span class="toggle-text-cancel">취소</span>
     </div>
-    <span class="toggle-label" style="color:#e5534b;">취소</span>
   </div>`;
 }
 
@@ -877,7 +886,7 @@ function renderNotice() {
       const isCancelSel = sel === "환불" || sel === "취소";
       const nameRow = `
         <div style="display:flex;align-items:center;gap:8px;">
-          <div style="font-size:14px;font-weight:600;color:${canRefund ? (isCancelSel ? '#e5534b' : '#1a1a1a') : '#bbb'};${isCancelSel ? 'text-decoration:line-through;' : ''}">${series}</div>
+          <div style="font-size:14px;font-weight:600;color:${canRefund ? (isCancelSel ? '#aaa' : '#1a1a1a') : '#bbb'};">${series}</div>
           ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
         </div>`;
       const subText = canRefund
