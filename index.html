@@ -1091,14 +1091,47 @@ function openConfirmModal() {
   const hasApply = applyList.length > 0;
   const hasCancel = cancelList.length > 0;
 
+  // 시리즈별 첫 배부 가능 회차 + 배부일 찾기
+  function getSeriesInfo(series) {
+    if (!refundCutoff) return { round: "", deliveryDate: "", price: 0 };
+    const items = contents
+      .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > refundCutoff)
+      .sort((a, b) => a.order - b.order);
+    const first = items[0];
+    const priceKey = series === "CRUX 과학Ⅰ" ? "CRUX 과학" : series;
+    const price = seriesPrices[priceKey] || DEFAULT_PRICES[priceKey] || 0;
+    return {
+      round: first ? getFirstRound(first.name) : "",
+      deliveryDate: first ? first.deliveryDate : "",
+      price
+    };
+  }
+
+  function renderSeriesRow(series, isCancel) {
+    const { round, deliveryDate, price } = getSeriesInfo(series);
+    const color = isCancel ? "#aaa" : "#1a1a1a";
+    const strikeStyle = isCancel ? "text-decoration:line-through;" : "";
+    const priceStr = price ? `<span style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</span>` : "";
+    const roundStr = round
+      ? `<span style="font-size:11px;color:${isCancel?'#ccc':'#2BADA0'};">${round}부터${deliveryDate ? " · 다음 배부일: " + deliveryDate : ""}</span>`
+      : "";
+    return `<div style="padding:7px 0;border-bottom:1px solid #f5f5f3;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:14px;font-weight:600;color:${color};${strikeStyle}">${series}</span>
+        ${priceStr}
+      </div>
+      ${roundStr ? `<div style="margin-top:2px;">${roundStr}</div>` : ""}
+    </div>`;
+  }
+
   let listHtml = "";
   if (hasApply) {
     listHtml += `<div style="font-size:12px;font-weight:700;color:#2BADA0;margin-bottom:4px;">[신청]</div>`;
-    listHtml += applyList.map(([s]) => `<div style="font-size:13px;padding:3px 0;border-bottom:1px solid #f5f5f3;">${s}</div>`).join("");
+    listHtml += applyList.map(([s]) => renderSeriesRow(s, false)).join("");
   }
   if (hasCancel) {
     listHtml += `<div style="font-size:12px;font-weight:700;color:#aaa;margin-top:${hasApply?'10px':'0'};margin-bottom:4px;">[취소]</div>`;
-    listHtml += cancelList.map(([s]) => `<div style="font-size:13px;padding:3px 0;border-bottom:1px solid #f5f5f3;color:#aaa;text-decoration:line-through;">${s}</div>`).join("");
+    listHtml += cancelList.map(([s]) => renderSeriesRow(s, true)).join("");
   }
   document.getElementById("cm_changeList").innerHTML = listHtml;
 
@@ -1545,9 +1578,49 @@ async function loadChanges() {
     }
   });
 
-  let changed = sSnap.docs
+  // ── 학생+기준일 단위로 그룹핑 후 최신 선택값으로 합산 ──
+  const rawDocs = sSnap.docs
     .map(d => ({ docId: d.id, ...d.data() }))
-    .filter(s => s.selections && Object.keys(s.selections).length > 0);
+    .filter(s => s.selections && Object.keys(s.selections).length > 0)
+    .sort((a, b) => {
+      // updatedAt 오름차순 (오래된 것 먼저 → 나중 것이 덮어씀)
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return ta - tb;
+    });
+
+  // key: "studentId__cutoffDate"
+  const groupMap = new Map();
+  rawDocs.forEach(s => {
+    const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
+    if (!groupMap.has(key)) {
+      // 첫 등장: 기본 틀 생성 (최신 docId/meta는 나중에 덮어씀)
+      groupMap.set(key, { ...s, selections: { ...s.selections } });
+    } else {
+      const existing = groupMap.get(key);
+      // 선택값 병합: 최신 값으로 덮어쓰기
+      Object.entries(s.selections || {}).forEach(([series, val]) => {
+        existing.selections[series] = val;
+      });
+      // 최신 메타(docId, updatedAt, processedByPeriod 등)는 나중 문서 기준
+      existing.docId         = s.docId;
+      existing.updatedAt     = s.updatedAt;
+      existing.processedByPeriod    = s.processedByPeriod    || existing.processedByPeriod;
+      existing.processedAtByPeriod  = s.processedAtByPeriod  || existing.processedAtByPeriod;
+      existing.unprocessedAtByPeriod= s.unprocessedAtByPeriod|| existing.unprocessedAtByPeriod;
+      existing.memoByPeriod         = s.memoByPeriod         || existing.memoByPeriod;
+      existing.paymentMethod        = s.paymentMethod        || existing.paymentMethod;
+    }
+  });
+
+  // 빈 selections 제거 후 배열로 변환, updatedAt desc 정렬
+  let changed = Array.from(groupMap.values())
+    .filter(s => Object.keys(s.selections).length > 0)
+    .sort((a, b) => {
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return tb - ta;
+    });
 
   if (_showOnlyUnprocessed) {
     changed = changed.filter(s => {
@@ -1557,9 +1630,7 @@ async function loadChanges() {
   }
 
   // 전체에서 미처리 수 계산 (필터 상태 무관하게 항상 전체 기준)
-  const allChanged = sSnap.docs
-    .map(d => ({ docId: d.id, ...d.data() }))
-    .filter(s => s.selections && Object.keys(s.selections).length > 0);
+  const allChanged = Array.from(groupMap.values());
   const totalCount = allChanged.length;
   const unprocessedCount = allChanged.filter(s => {
     const period = s.cutoffDate || "기준일 미설정";
@@ -1719,7 +1790,7 @@ async function loadChanges() {
               <span style="font-size:12px;color:#888;">${s.ban}반 · ${s.group}그룹</span>
               <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
             </div>
-            ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:8px;">신청/취소 시점: ${submittedAt}${period !== "기준일 미설정" ? " · 기준일 " + formatDateKR(period) : ""}</div>` : ""}
+            ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:8px;">신청/취소 시점: ${submittedAt}${period !== "기준일 미설정" ? " · 기준일 " + formatDateKR(period) : ""}${s.paymentMethod ? ` · 결제: <span style="background:#e4f5f3;color:#2BADA0;padding:1px 7px;border-radius:8px;font-size:11px;">${s.paymentMethod}</span>` : ""}</div>` : ""}
             ${changeList}
             ${totalStr}
             <div style="margin-top:8px;">
