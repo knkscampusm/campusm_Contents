@@ -573,12 +573,16 @@ const db   = firebase.firestore();
 
 const DEFAULT_PRICES = {
   "CRUX 국어":          9000,
+  "CRUX 수학":          9000,
   "CONNEX 수학":        10000,
   "CIRCUIT 수학":       7000,
   "The Constant":       8500,
   "CIRCUIT 영어":       6500,
   "강대모의고사K 국어": 14000,
+  "FF":                 0,
+  "한수위 모의고사":    0,
   "CRUX 과학":          7000,
+  "CRUX 과학Ⅰ":        7000,
   "CRUX 과학Ⅱ":        7000,
   "CIRCUIT 과학Ⅰ":     7500,
 };
@@ -821,6 +825,37 @@ function getSeriesName(name) {
   if (base === "CRUX 과학") return "CRUX 과학Ⅰ";
   if (base === "CIRCUIT 과학" || base === "CIRCUIT 과학Ⅰ") return "CIRCUIT 과학Ⅰ";
   return base;
+}
+
+// 콘텐츠 이름에서 포함된 회차 수 추출 (1~3회→3, 1·2회→2, 6·7회→2, 5회→1)
+function getRoundCount(name) {
+  // "A~B회" 형태
+  const rangeM = name.match(/(\d+)~(\d+)회/);
+  if (rangeM) return parseInt(rangeM[2]) - parseInt(rangeM[1]) + 1;
+  // "A·B회" 형태 (두 회차)
+  const dotM = name.match(/\d+(?:·\d+)+회/);
+  if (dotM) return (dotM[0].match(/\d+/g) || []).length;
+  return 1;
+}
+
+// 콘텐츠 1개의 실제 가격 (회차 수 × 단가, CONNEX 수I·수II는 ×2)
+function getContentPrice(name, priceMap) {
+  const series = getSeriesName(name);
+  const priceKey = series === "CRUX 과학Ⅰ" ? "CRUX 과학" : series;
+  const unitPrice = priceMap[priceKey] || DEFAULT_PRICES[priceKey] || 0;
+  if (!unitPrice) return 0;
+
+  const rounds = getRoundCount(name);
+
+  // CONNEX 수학(수I·수II): 두 교재 묶음 → ×2
+  if (series === "CONNEX 수학" && name.includes("수I·수II")) {
+    return unitPrice * rounds * 2;
+  }
+  // CIRCUIT 계열: 회차 수 × 단가
+  if (series === "CIRCUIT 수학" || series === "CIRCUIT 영어" || series === "CIRCUIT 과학Ⅰ") {
+    return unitPrice * rounds;
+  }
+  return unitPrice;
 }
 
 const SERIES_DISPLAY = {
@@ -1126,8 +1161,7 @@ function openConfirmModal() {
       .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > refundCutoff)
       .sort((a, b) => a.order - b.order);
     const first = items[0];
-    const priceKey = series === "CRUX 과학Ⅰ" ? "CRUX 과학" : series;
-    const price = seriesPrices[priceKey] || DEFAULT_PRICES[priceKey] || 0;
+    const price = first ? getContentPrice(first.name, seriesPrices) : 0;
     return {
       round: first ? getFirstRound(first.name) : "",
       deliveryDate: first ? first.deliveryDate : "",
@@ -1377,9 +1411,7 @@ async function loadAdminContents() {
 
       const itemRows = items.map(item => {
         const catColor = catColors[item.category] || "#888";
-        const seriesKey = getSeriesName(item.name);
-        const priceKey = seriesKey === "CRUX 과학Ⅰ" ? "CRUX 과학" : seriesKey;
-        const price = adminPrices[priceKey] || 0;
+        const price = getContentPrice(item.name, adminPrices);
         const priceStr = price ? `<span style="font-size:11px;color:#aaa;flex-shrink:0;">${price.toLocaleString()}원</span>` : "";
         return `
           <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f8f8f6;">
@@ -1793,8 +1825,6 @@ async function loadChanges() {
       const rows = entries.flatMap(([series, val]) => {
         if (!s.cutoffDate) return [];
         const isCancel = val === "취소" || val === "환불";
-        const priceKey = series === "CRUX 과학Ⅰ" ? "CRUX 과학" : series;
-        const price    = priceMap[priceKey] || DEFAULT_PRICES[priceKey] || 0;
         const sciMult  = series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ" ? (sCountI || 1)
                        : series === "CRUX 과학Ⅱ" ? (sCountII || 1) : 1;
         const dispNames = getDisplayNames(series).join(" · ");
@@ -1830,10 +1860,11 @@ async function loadChanges() {
           const mm    = ym.slice(5,7);
           const mLabel = monthNames[mm] || ym;
           const count  = items.length;
-          const amount = price * count * sciMult;
+          const unitContentPrice = items[0] ? getContentPrice(items[0].name, priceMap) : 0;
+          const amount = unitContentPrice * count * sciMult;
           const multStr = isSciSeries ? `×${sciMult}과목` : "";
-          const amountStr = price
-            ? `<span style="color:${groupColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${price.toLocaleString()}원${multStr})</span>`
+          const amountStr = unitContentPrice
+            ? `<span style="color:${groupColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${unitContentPrice.toLocaleString()}원${multStr})</span>`
             : "";
           const isVisible = visibleMonths.has(ym);
           totalAmount += isVisible ? (isCancel ? -amount : amount) : 0;
