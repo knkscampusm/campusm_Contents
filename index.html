@@ -358,8 +358,22 @@
 
   <!-- 콘텐츠 관리 -->
   <div id="tab0" class="tab-pane active">
-    <div class="card">
-      <div class="section-title">취소 기준일 설정</div>
+    <!-- 상단 액션 버튼 -->
+    <div style="display:flex;gap:8px;margin-bottom:1rem;">
+      <button onclick="openCutoffPanel()" style="display:flex;align-items:center;gap:6px;padding:9px 14px;font-size:13px;font-weight:600;border:1.5px solid #2BADA0;border-radius:10px;background:#fff;color:#2BADA0;cursor:pointer;">
+        <span style="font-size:16px;">📅</span> 기준일 설정
+      </button>
+      <button onclick="openAddPanel()" style="display:flex;align-items:center;gap:6px;padding:9px 14px;font-size:13px;font-weight:600;border:1.5px solid #3b6fd4;border-radius:10px;background:#fff;color:#3b6fd4;cursor:pointer;">
+        <span style="font-size:16px;">➕</span> 콘텐츠 추가
+      </button>
+    </div>
+
+    <!-- 기준일 설정 패널 (접힘) -->
+    <div id="cutoffPanel" style="display:none;" class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="section-title" style="margin:0;">📅 취소 기준일 설정</div>
+        <button onclick="closeCutoffPanel()" style="font-size:18px;background:none;border:none;cursor:pointer;color:#aaa;">✕</button>
+      </div>
       <p style="font-size:13px;color:#888;margin-bottom:12px;">이 날짜 이후에 배부되는 콘텐츠만 취소 가능 상태로 표시됩니다.</p>
       <div class="row">
         <input type="date" id="cutoffDate" style="flex:1;" />
@@ -367,8 +381,13 @@
       </div>
       <div id="cutoffMsg" class="msg"></div>
     </div>
-    <div class="card">
-      <div class="section-title">콘텐츠 추가</div>
+
+    <!-- 콘텐츠 추가 패널 (접힘) -->
+    <div id="addPanel" style="display:none;" class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="section-title" style="margin:0;">➕ 콘텐츠 추가</div>
+        <button onclick="closeAddPanel()" style="font-size:18px;background:none;border:none;cursor:pointer;color:#aaa;">✕</button>
+      </div>
       <div class="add-grid">
         <div class="span2">
           <label>콘텐츠 이름</label>
@@ -392,6 +411,8 @@
         </div>
       </div>
     </div>
+
+    <!-- 콘텐츠 목록 -->
     <div class="card">
       <div class="row sb" style="margin-bottom:12px;">
         <div class="section-title" style="margin:0;">콘텐츠 목록</div>
@@ -1282,6 +1303,21 @@ async function deleteContent(id) {
   loadAdminContents();
 }
 
+function openCutoffPanel() {
+  document.getElementById("cutoffPanel").style.display = "";
+  document.getElementById("addPanel").style.display = "none";
+}
+function closeCutoffPanel() {
+  document.getElementById("cutoffPanel").style.display = "none";
+}
+function openAddPanel() {
+  document.getElementById("addPanel").style.display = "";
+  document.getElementById("cutoffPanel").style.display = "none";
+}
+function closeAddPanel() {
+  document.getElementById("addPanel").style.display = "none";
+}
+
 async function loadAdminContents() {
   const [snap, priceDoc] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
@@ -1291,50 +1327,88 @@ async function loadAdminContents() {
   const el = document.getElementById("adminContentList");
   if (snap.empty) { el.innerHTML = '<div class="empty">등록된 콘텐츠가 없습니다</div>'; return; }
 
-  const CAT_ORDER = ["국어", "수학", "영어", "과학탐구"];
-  const catColors = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
+  const monthNames = {"02":"2월","03":"3월","04":"4월","05":"5월","06":"6월","07":"7월","08":"8월"};
 
-  const catGroups = {};
+  // 배부일 기준 월-주차 계산
+  function getWeekLabel(dateStr) {
+    if (!dateStr) return "날짜 미정";
+    const d = new Date(dateStr);
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = d.getDate();
+    const week = Math.ceil(day / 7);
+    return `${monthNames[m] || m+"월"} ${week}주차`;
+  }
+
+  // 월 키 (정렬용)
+  function getMonthKey(dateStr) {
+    if (!dateStr) return "9999-99";
+    return dateStr.slice(0, 7);
+  }
+
+  function getWeekKey(dateStr) {
+    if (!dateStr) return "9999-99-9";
+    const d = new Date(dateStr);
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const week = Math.ceil(d.getDate() / 7);
+    return `${dateStr.slice(0,4)}-${m}-${week}`;
+  }
+
+  // 월 → 주차 → 콘텐츠 그룹핑
+  const monthGroups = {};
   snap.docs.forEach(d => {
     const data = { id: d.id, ...d.data() };
-    const cat  = data.category || "기타";
-    const series = getSeriesName(data.name);
-    if (!catGroups[cat]) catGroups[cat] = {};
-    if (!catGroups[cat][series]) catGroups[cat][series] = [];
-    catGroups[cat][series].push(data);
+    const mKey  = getMonthKey(data.deliveryDate);
+    const wKey  = getWeekKey(data.deliveryDate);
+    if (!monthGroups[mKey]) monthGroups[mKey] = {};
+    if (!monthGroups[mKey][wKey]) monthGroups[mKey][wKey] = [];
+    monthGroups[mKey][wKey].push(data);
   });
 
-  el.innerHTML = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
-    const color = catColors[cat] || "#888";
-    const seriesHtml = Object.entries(catGroups[cat]).map(([series, items]) => {
-      const itemRows = items.map(item => `
-        <div style="display:flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;border-bottom:1px solid #f8f8f6;">
-          <input type="checkbox" class="content-check" data-id="${item.id}"
-            style="width:16px;height:16px;accent-color:#2BADA0;flex-shrink:0;cursor:pointer;" />
-          <div style="flex:1;font-size:13px;color:#555;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</div>
-          <input type="date" value="${item.deliveryDate || ''}"
-            style="padding:4px 6px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;outline:none;width:130px;flex-shrink:0;"
-            onchange="updateDeliveryDate('${item.id}', this.value)" />
-          <button class="btn btn-danger btn-sm" onclick="deleteContent('${item.id}')" style="padding:5px 10px;">삭제</button>
-        </div>`).join("");
+  const catColors = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
+
+  el.innerHTML = Object.keys(monthGroups).sort().map(mKey => {
+    const mLabel = mKey === "9999-99" ? "날짜 미정" : (monthNames[mKey.slice(5,7)] || mKey.slice(5,7)+"월");
+
+    const weekHtml = Object.keys(monthGroups[mKey]).sort().map(wKey => {
+      const items = monthGroups[mKey][wKey].sort((a,b) => (a.order||0)-(b.order||0));
+      const weekLabel = getWeekLabel(items[0]?.deliveryDate);
+      const dateLabel = items[0]?.deliveryDate || "";
+
+      const itemRows = items.map(item => {
+        const catColor = catColors[item.category] || "#888";
+        return `
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f8f8f6;">
+            <input type="checkbox" class="content-check" data-id="${item.id}"
+              style="width:15px;height:15px;accent-color:#2BADA0;flex-shrink:0;cursor:pointer;" />
+            <span style="font-size:10px;font-weight:700;color:${catColor};padding:2px 6px;background:${catColor}18;border-radius:6px;flex-shrink:0;">${item.category||""}</span>
+            <div style="flex:1;font-size:13px;color:#333;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</div>
+            <input type="date" value="${item.deliveryDate || ''}"
+              style="padding:3px 6px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;outline:none;width:128px;flex-shrink:0;"
+              onchange="updateDeliveryDate('${item.id}', this.value)" />
+            <button class="btn btn-danger btn-sm" onclick="deleteContent('${item.id}')" style="padding:4px 9px;font-size:12px;">삭제</button>
+          </div>`;
+      }).join("");
+
       return `
-        <div style="margin-bottom:10px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
-          <div style="padding:8px 12px;background:#f8f8f6;border-bottom:1px solid #ebebeb;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-            <span style="font-size:13px;font-weight:700;color:#333;">${series}</span>
-            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-              <input type="number" placeholder="금액" value="${adminPrices[series]||''}"
-                style="width:90px;padding:4px 8px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fff;outline:none;text-align:right;"
-                onchange="updateSeriesPrice('${series}', this.value)" />
-              <span style="font-size:11px;color:#aaa;">원</span>
+        <div style="margin-bottom:8px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
+          <div style="padding:7px 12px;background:#f4f4f2;border-bottom:1px solid #e8e8e6;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:13px;font-weight:700;color:#555;">${weekLabel}</span>
+              ${dateLabel ? `<span style="font-size:11px;color:#aaa;">${dateLabel}</span>` : ""}
             </div>
+            <span style="font-size:11px;color:#bbb;">${items.length}개</span>
           </div>
           ${itemRows}
         </div>`;
     }).join("");
+
     return `
-      <div style="margin-bottom:1.25rem;">
-        <div style="font-size:12px;font-weight:700;color:${color};letter-spacing:0.05em;padding:4px 0 6px;border-bottom:2px solid ${color};margin-bottom:10px;">${cat}</div>
-        ${seriesHtml}
+      <div style="margin-bottom:1.5rem;">
+        <div style="font-size:14px;font-weight:800;color:#1a1a1a;padding:6px 0 8px;border-bottom:2px solid #1a1a1a;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+          <span>📅 ${mLabel}</span>
+          <span style="font-size:12px;font-weight:500;color:#aaa;">${Object.values(monthGroups[mKey]).flat().length}개</span>
+        </div>
+        ${weekHtml}
       </div>`;
   }).join("");
 }
