@@ -401,9 +401,11 @@
         <div class="section-title" style="margin:0;">신청/취소 전체 이력</div>
         <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">📥 엑셀 다운로드</button>
       </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr id="historyTblHead"></tr></thead>
+      <div style="overflow:auto;max-height:480px;border:1px solid #e5e5e3;border-radius:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px;">
+          <thead style="position:sticky;top:0;z-index:1;">
+            <tr id="historyTblHead"></tr>
+          </thead>
           <tbody id="historyTblBody"></tbody>
         </table>
       </div>
@@ -418,10 +420,7 @@
           <div class="section-title" style="margin:0;">변경 처리 현황</div>
           <div id="changeCount"></div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">📥 엑셀 다운로드</button>
-          <button id="filterBtn" onclick="toggleFilter()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1.5px solid #ED0081;background:#fff;color:#ED0081;cursor:pointer;font-weight:600;">미처리만 보기</button>
-        </div>
+        <button id="filterBtn" onclick="toggleFilter()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1.5px solid #ED0081;background:#fff;color:#ED0081;cursor:pointer;font-weight:600;">미처리만 보기</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.875rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;flex-wrap:wrap;">
         <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0;"></div>
@@ -1693,9 +1692,10 @@ async function loadSubmissions() {
   const hHead = document.getElementById("historyTblHead");
   const hBody = document.getElementById("historyTblBody");
 
+  const thStyle = "background:#f8f8f6;padding:9px 12px;font-weight:600;color:#555;border-bottom:1px solid #e5e5e3;white-space:nowrap;";
   hHead.innerHTML =
-    `<th style="white-space:nowrap;">신청/취소 시점</th><th>학번</th><th>이름</th><th>반</th><th>그룹</th><th>결제방법</th>` +
-    allSeries.map(s => `<th style="white-space:nowrap;">${s}</th>`).join("");
+    `<th style="${thStyle}">신청/취소 시점</th><th style="${thStyle}">학번</th><th style="${thStyle}">이름</th><th style="${thStyle}">반</th><th style="${thStyle}">그룹</th><th style="${thStyle}">결제방법</th>` +
+    allSeries.map(s => `<th style="${thStyle}">${s}</th>`).join("");
 
   if (!histRows.length) {
     hBody.innerHTML = `<tr><td colspan="${6 + allSeries.length}" style="text-align:center;color:#ccc;padding:1.5rem;">이력이 없습니다</td></tr>`;
