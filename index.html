@@ -230,28 +230,30 @@
     /* ── TOGGLE SWITCH ── */
     .toggle-wrap { display:flex; align-items:center; flex-shrink:0; }
     .toggle-track {
-      position:relative; width:80px; height:28px; border-radius:14px;
+      position:relative; width:76px; height:28px; border-radius:14px;
       cursor:pointer; transition:background 0.2s; overflow:hidden;
+      flex-shrink:0;
     }
     .toggle-track.disabled { opacity:0.3; cursor:not-allowed; pointer-events:none; }
     .toggle-thumb {
-      position:absolute; top:3px; width:22px; height:22px; border-radius:50%;
-      background:#fff; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.25);
-      z-index:2;
+      position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%;
+      background:#fff; transition:left 0.22s cubic-bezier(0.4,0,0.2,1);
+      box-shadow:0 1px 3px rgba(0,0,0,0.25); z-index:2;
     }
-    .toggle-text-apply, .toggle-text-cancel {
+    .toggle-text {
       position:absolute; top:50%; transform:translateY(-50%);
-      font-size:11px; font-weight:700; letter-spacing:0.02em;
-      color:#fff; pointer-events:none; z-index:1; transition:opacity 0.2s;
+      font-size:11px; font-weight:700; color:#fff;
+      pointer-events:none; z-index:1; white-space:nowrap;
+      transition:opacity 0.18s;
     }
-    .toggle-text-apply  { right:7px; }
-    .toggle-text-cancel { left:7px; }
     .toggle-apply  { background:#2BADA0; }
     .toggle-cancel { background:#aaa; }
-    .toggle-apply  .toggle-thumb { left:55px; }
+    /* 신청 상태: 썸 오른쪽, "신청" 텍스트 왼쪽 표시 */
+    .toggle-apply .toggle-thumb { left:51px; }
+    .toggle-apply .toggle-text  { left:8px; opacity:1; }
+    /* 취소 상태: 썸 왼쪽, "취소" 텍스트 오른쪽 표시 */
     .toggle-cancel .toggle-thumb { left:3px; }
-    .toggle-apply  .toggle-text-cancel { opacity:0; }
-    .toggle-cancel .toggle-text-apply  { opacity:0; }
+    .toggle-cancel .toggle-text  { right:8px; left:auto; opacity:1; }
 
     /* ── MISC ── */
     .section-title { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 0.875rem; }
@@ -426,10 +428,19 @@
   <div id="tab2" class="tab-pane">
     <div class="card">
       <div class="row sb" style="margin-bottom:0.75rem;">
-        <div class="section-title" style="margin:0;">변경 처리 현황</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div class="section-title" style="margin:0;">변경 처리 현황</div>
+          <div id="changeCount" style="font-size:12px;color:#aaa;"></div>
+        </div>
         <button id="filterBtn" onclick="toggleFilter()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1.5px solid #ED0081;background:#fff;color:#ED0081;cursor:pointer;font-weight:600;">미처리만 보기</button>
       </div>
       <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:0.875rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;"></div>
+      <!-- 학생 네비게이션 -->
+      <div id="cardNav" style="display:none;align-items:center;justify-content:space-between;margin-bottom:0.75rem;padding:8px 12px;background:#f8f8f6;border-radius:10px;">
+        <button onclick="navCard(-1)" style="padding:5px 12px;font-size:13px;font-weight:700;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">‹</button>
+        <span id="cardNavLabel" style="font-size:13px;color:#555;font-weight:600;"></span>
+        <button onclick="navCard(1)" style="padding:5px 12px;font-size:13px;font-weight:700;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">›</button>
+      </div>
       <div id="changeList"><div class="empty">데이터를 불러오는 중...</div></div>
     </div>
   </div>
@@ -739,11 +750,11 @@ function makeToggle(series, sel, canClick) {
   const dis = !canClick ? "disabled" : "";
   const nextVal = isCancel ? "신청" : "환불";
   const onclick = canClick ? `onclick="pickSeries('${series}','${nextVal}')"` : "";
+  const label = isCancel ? "취소" : "신청";
   return `<div class="toggle-wrap">
     <div class="toggle-track ${trackClass} ${dis}" ${onclick}>
       <div class="toggle-thumb"></div>
-      <span class="toggle-text-apply">신청</span>
-      <span class="toggle-text-cancel">취소</span>
+      <span class="toggle-text">${label}</span>
     </div>
   </div>`;
 }
@@ -886,7 +897,7 @@ function renderNotice() {
       const isCancelSel = sel === "환불" || sel === "취소";
       const nameRow = `
         <div style="display:flex;align-items:center;gap:8px;">
-          <div style="font-size:14px;font-weight:600;color:${canRefund ? (isCancelSel ? '#aaa' : '#1a1a1a') : '#bbb'};">${series}</div>
+          <div style="font-size:14px;font-weight:600;color:${canRefund ? (isCancelSel ? '#aaa' : '#1a1a1a') : '#bbb'};${isCancelSel ? 'text-decoration:line-through;' : ''}">${series}</div>
           ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
         </div>`;
       const subText = canRefund
@@ -1387,8 +1398,23 @@ async function loadChanges() {
     });
   }
 
+  // 전체에서 미처리 수 계산 (필터 상태 무관하게 항상 전체 기준)
+  const allChanged = sSnap.docs
+    .map(d => ({ docId: d.id, ...d.data() }))
+    .filter(s => s.selections && Object.keys(s.selections).length > 0);
+  const totalCount = allChanged.length;
+  const unprocessedCount = allChanged.filter(s => {
+    const period = s.cutoffDate || "기준일 미설정";
+    return !(s.processedByPeriod && s.processedByPeriod[period]);
+  }).length;
+  const countEl = document.getElementById("changeCount");
+  if (countEl) {
+    countEl.innerHTML = `총 <b>${totalCount}</b>건 중 미처리 <b style="color:#ED0081;">${unprocessedCount}</b>건`;
+  }
+
   if (!changed.length) {
     el.innerHTML = `<div class="empty">${_showOnlyUnprocessed ? "미처리 내역이 없습니다 🎉" : "변경 내역이 없습니다"}</div>`;
+    document.getElementById("cardNav").style.display = "none";
     return;
   }
 
@@ -1418,6 +1444,25 @@ async function loadChanges() {
       </label>`;
     }).join("");
   }
+
+  // 네비게이션 상태
+  let _currentCardIdx = 0;
+
+  function updateCardNav() {
+    const cards = el.querySelectorAll(".student-card");
+    const nav   = document.getElementById("cardNav");
+    const label = document.getElementById("cardNavLabel");
+    if (!cards.length) { nav.style.display = "none"; return; }
+    nav.style.display = "flex";
+    cards.forEach((c, i) => c.style.display = i === _currentCardIdx ? "" : "none");
+    label.textContent = `${cards[_currentCardIdx].dataset.name || ""} (${_currentCardIdx + 1} / ${cards.length})`;
+  }
+
+  window.navCard = function(dir) {
+    const cards = el.querySelectorAll(".student-card");
+    _currentCardIdx = (_currentCardIdx + dir + cards.length) % cards.length;
+    updateCardNav();
+  };
 
   el.innerHTML = changed.map(s => {
     const period = s.cutoffDate || "기준일 미설정";
@@ -1508,7 +1553,7 @@ async function loadChanges() {
       : "";
 
     return `
-      <div class="student-card" style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
+      <div class="student-card" data-name="${s.name}" style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};display:none;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
           <div style="flex:1;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
@@ -1538,6 +1583,7 @@ async function loadChanges() {
         </div>
       </div>`;
   }).join("");
+  updateCardNav();
 }
 
 async function toggleProcessed(docId, period, newVal) {
