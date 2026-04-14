@@ -395,16 +395,16 @@
     </div>
     <!-- 검색 결과 -->
     <div id="studentStatusResult" style="display:none;"></div>
-    <!-- 전체 현황 테이블 -->
+    <!-- 신청/취소 전체 이력 -->
     <div class="card">
       <div class="row sb" style="margin-bottom:1rem;">
-        <div class="section-title" style="margin:0;">전체 현황</div>
-        <button class="btn btn-outline btn-sm" onclick="exportExcel()">엑셀 다운로드</button>
+        <div class="section-title" style="margin:0;">신청/취소 전체 이력</div>
+        <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">📥 엑셀 다운로드</button>
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr id="tblHead"></tr></thead>
-          <tbody id="tblBody"></tbody>
+          <thead><tr id="historyTblHead"></tr></thead>
+          <tbody id="historyTblBody"></tbody>
         </table>
       </div>
     </div>
@@ -418,7 +418,10 @@
           <div class="section-title" style="margin:0;">변경 처리 현황</div>
           <div id="changeCount"></div>
         </div>
-        <button id="filterBtn" onclick="toggleFilter()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1.5px solid #ED0081;background:#fff;color:#ED0081;cursor:pointer;font-weight:600;">미처리만 보기</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">📥 엑셀 다운로드</button>
+          <button id="filterBtn" onclick="toggleFilter()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1.5px solid #ED0081;background:#fff;color:#ED0081;cursor:pointer;font-weight:600;">미처리만 보기</button>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.875rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;flex-wrap:wrap;">
         <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0;"></div>
@@ -1605,13 +1608,18 @@ async function searchStudentStatus() {
 }
 
 async function loadSubmissions() {
-  const [cSnap, sSnap] = await Promise.all([
+  const [cSnap, sSnap, histSnap, settingDoc] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
-    db.collection("submissions").get()
+    db.collection("submissions").get(),
+    db.collection("submissionHistory").orderBy("updatedAt","desc").get(),
+    db.collection("settings").doc("refund").get()
   ]);
-  const cols = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const subs = sSnap.docs.map(d => d.data());
+  const cols     = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const subs     = sSnap.docs.map(d => d.data());
+  const cutoff   = settingDoc.exists ? settingDoc.data().cutoffDate : null;
+  const contents = cols;
 
+  // ── 전체 현황 테이블 ──
   document.getElementById("tblHead").innerHTML =
     `<th>학번</th><th>이름</th><th>반</th><th>그룹</th>` +
     cols.map(c => `<th>${c.name}</th>`).join("");
@@ -1619,18 +1627,100 @@ async function loadSubmissions() {
   const body = document.getElementById("tblBody");
   if (!subs.length) {
     body.innerHTML = `<tr><td colspan="${4 + cols.length}" style="text-align:center;color:#ccc;padding:1.5rem;">데이터가 없습니다</td></tr>`;
+  } else {
+    body.innerHTML = subs.map(s => `
+      <tr>
+        <td>${s.studentId}</td><td>${s.name}</td><td>${s.ban}</td><td>${s.group}</td>
+        ${cols.map(c => {
+          const v = s.selections?.[c.id];
+          if (v === "환불") return `<td class="tag-r">취소</td>`;
+          if (v === "신청") return `<td class="tag-a">신청</td>`;
+          return `<td style="color:#ddd;">-</td>`;
+        }).join("")}
+      </tr>`).join("");
+  }
+
+  // ── 신청/취소 전체 이력 테이블 ──
+  // 학생+기준일 단위 합산
+  const rawDocs = histSnap.docs
+    .map(d => ({ docId: d.id, ...d.data() }))
+    .filter(s => s.selections && Object.keys(s.selections).length > 0)
+    .sort((a, b) => {
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return ta - tb;
+    });
+
+  const groupMap = new Map();
+  rawDocs.forEach(s => {
+    const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
+    if (!groupMap.has(key)) {
+      groupMap.set(key, { ...s, selections: { ...s.selections } });
+    } else {
+      const existing = groupMap.get(key);
+      Object.entries(s.selections || {}).forEach(([series, val]) => {
+        existing.selections[series] = val;
+      });
+      existing.updatedAt     = s.updatedAt;
+      existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
+    }
+  });
+
+  // 전체 시리즈 목록
+  const allSeries = [];
+  const seenSeries = new Set();
+  contents.forEach(item => {
+    const s = getSeriesName(item.name);
+    if (!seenSeries.has(s)) { seenSeries.add(s); allSeries.push(s); }
+  });
+
+  // 시리즈별 첫 회차 맵
+  const seriesRoundMap = {};
+  contents.sort((a,b) => a.order - b.order).forEach(item => {
+    const s = getSeriesName(item.name);
+    if (!seriesRoundMap[s] && cutoff && item.deliveryDate && item.deliveryDate > cutoff) {
+      seriesRoundMap[s] = getFirstRound(item.name) + "부터";
+    }
+  });
+
+  const histRows = Array.from(groupMap.values())
+    .sort((a, b) => {
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return tb - ta;
+    });
+
+  const hHead = document.getElementById("historyTblHead");
+  const hBody = document.getElementById("historyTblBody");
+
+  hHead.innerHTML =
+    `<th style="white-space:nowrap;">신청/취소 시점</th><th>학번</th><th>이름</th><th>반</th><th>그룹</th><th>결제방법</th>` +
+    allSeries.map(s => `<th style="white-space:nowrap;">${s}</th>`).join("");
+
+  if (!histRows.length) {
+    hBody.innerHTML = `<tr><td colspan="${6 + allSeries.length}" style="text-align:center;color:#ccc;padding:1.5rem;">이력이 없습니다</td></tr>`;
     return;
   }
-  body.innerHTML = subs.map(s => `
-    <tr>
+
+  hBody.innerHTML = histRows.map(s => {
+    const submittedAt = s.updatedAt?.toDate
+      ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+      : "-";
+    return `<tr>
+      <td style="color:#ED0081;font-size:12px;white-space:nowrap;">${submittedAt}</td>
       <td>${s.studentId}</td><td>${s.name}</td><td>${s.ban}</td><td>${s.group}</td>
-      ${cols.map(c => {
-        const v = s.selections?.[c.id];
-        if (v === "환불") return `<td class="tag-r">취소</td>`;
-        if (v === "신청") return `<td class="tag-a">신청</td>`;
-        return `<td style="color:#ddd;">-</td>`;
+      <td style="color:#2BADA0;font-size:12px;">${s.paymentMethod || "-"}</td>
+      ${allSeries.map(series => {
+        const val = s.selections?.[series];
+        if (!val) return `<td style="color:#ddd;">-</td>`;
+        const isCancel = val === "취소" || val === "환불";
+        const label = isCancel ? "취소" : "신청";
+        const round = seriesRoundMap[series] || "";
+        const cls   = isCancel ? "tag-r" : "tag-a";
+        return `<td class="${cls}" style="font-size:12px;">${label}${round ? "<br><span style='font-size:10px;font-weight:400;color:#aaa;'>"+round+"</span>" : ""}</td>`;
       }).join("")}
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 }
 
 let _showOnlyUnprocessed = false;
@@ -1986,6 +2076,108 @@ async function saveMemo(docId, period, memo) {
   } catch(e) {
     console.error("saveMemo error:", e);
   }
+}
+
+async function exportChangeHistory() {
+  toast("엑셀 생성 중...");
+
+  const [sSnap, cSnap, settingDoc] = await Promise.all([
+    db.collection("submissionHistory").orderBy("updatedAt","desc").get(),
+    db.collection("contents").orderBy("order").get(),
+    db.collection("settings").doc("refund").get()
+  ]);
+
+  const cutoff   = settingDoc.exists ? settingDoc.data().cutoffDate : null;
+  const contents = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // 시리즈별 첫 배부 가능 회차 맵
+  const seriesRoundMap = {};
+  contents.sort((a,b) => a.order - b.order).forEach(item => {
+    const series = getSeriesName(item.name);
+    if (!seriesRoundMap[series] && cutoff && item.deliveryDate && item.deliveryDate > cutoff) {
+      seriesRoundMap[series] = getFirstRound(item.name) + "부터";
+    }
+  });
+
+  // 전체 시리즈 목록 (순서 유지)
+  const allSeries = [];
+  const seenSeries = new Set();
+  contents.forEach(item => {
+    const s = getSeriesName(item.name);
+    if (!seenSeries.has(s)) { seenSeries.add(s); allSeries.push(s); }
+  });
+
+  // 학생+기준일 단위로 합산 (loadChanges와 동일 로직)
+  const rawDocs = sSnap.docs
+    .map(d => ({ docId: d.id, ...d.data() }))
+    .filter(s => s.selections && Object.keys(s.selections).length > 0)
+    .sort((a, b) => {
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return ta - tb;
+    });
+
+  const groupMap = new Map();
+  rawDocs.forEach(s => {
+    const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
+    if (!groupMap.has(key)) {
+      groupMap.set(key, { ...s, selections: { ...s.selections } });
+    } else {
+      const existing = groupMap.get(key);
+      Object.entries(s.selections || {}).forEach(([series, val]) => {
+        existing.selections[series] = val;
+      });
+      existing.updatedAt = s.updatedAt;
+      existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
+    }
+  });
+
+  const rows = Array.from(groupMap.values())
+    .sort((a, b) => {
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return tb - ta;
+    });
+
+  // 헤더
+  const headers = [
+    "신청/취소 시점", "학번", "이름", "반", "그룹", "결제방법",
+    ...allSeries
+  ];
+
+  // 데이터 행
+  const dataRows = rows.map(s => {
+    const submittedAt = s.updatedAt?.toDate
+      ? s.updatedAt.toDate().toLocaleString("ko-KR", {month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+      : "";
+
+    const seriesCells = allSeries.map(series => {
+      const val = s.selections?.[series];
+      if (!val) return "-";
+      const label = (val === "환불" || val === "취소") ? "취소" : "신청";
+      const round = seriesRoundMap[series] || "";
+      return round ? `${label} ${round}` : label;
+    });
+
+    return [
+      submittedAt,
+      s.studentId, s.name, s.ban, s.group,
+      s.paymentMethod || "-",
+      ...seriesCells
+    ];
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+
+  // 열 너비 설정
+  ws["!cols"] = [
+    { wch: 16 }, { wch: 10 }, { wch: 10 }, { wch: 5 }, { wch: 8 }, { wch: 8 },
+    ...allSeries.map(() => ({ wch: 18 }))
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "변경이력");
+  XLSX.writeFile(wb, `위클리팩_변경이력_${today()}.xlsx`);
 }
 
 async function exportExcel() {
