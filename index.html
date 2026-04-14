@@ -227,6 +227,23 @@
     .tag-r { color: #e5534b; font-weight: 600; }
     .tag-a { color: #2BADA0; font-weight: 600; }
 
+    /* ── TOGGLE SWITCH ── */
+    .toggle-wrap { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+    .toggle-label { font-size:12px; font-weight:600; }
+    .toggle-track {
+      position:relative; width:52px; height:26px; border-radius:13px;
+      cursor:pointer; transition:background 0.2s;
+    }
+    .toggle-track.disabled { opacity:0.3; cursor:not-allowed; pointer-events:none; }
+    .toggle-thumb {
+      position:absolute; top:3px; width:20px; height:20px; border-radius:50%;
+      background:#fff; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle-apply  { background:#2BADA0; }
+    .toggle-cancel { background:#e5534b; }
+    .toggle-apply  .toggle-thumb { left:29px; }
+    .toggle-cancel .toggle-thumb { left:3px; }
+
     /* ── MISC ── */
     .section-title { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 0.875rem; }
     .empty { text-align: center; color: #bbb; font-size: 14px; padding: 2rem 0; }
@@ -826,15 +843,12 @@ function renderNotice() {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
               <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="font-size:14px;font-weight:600;color:${!blocked?'#1a1a1a':'#bbb'};">CRUX 과학Ⅰ</div>
+                  <div style="font-size:14px;font-weight:600;color:${!blocked?(sel==='환불'||sel==='취소'?'#e5534b':'#1a1a1a'):'#bbb'};${sel==='환불'||sel==='취소'?'text-decoration:line-through;':''}>CRUX 과학Ⅰ</div>
                   <div style="font-size:12px;color:#aaa;">${(seriesPrices["CRUX 과학"] || 7000).toLocaleString()}원${countI===2?' × 2':''}</div>
                 </div>
                 ${subText}${note}
               </div>
-              <div style="display:flex;gap:6px;flex-shrink:0;">
-                <button ${(canRefund && !blocked) ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('CRUX 과학Ⅰ','환불')"` : `disabled style="${disabledStyle}"`}>취소</button>
-                <button ${(canRefund && !blocked) ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('CRUX 과학Ⅰ','신청')"` : `disabled style="${disabledStyle}"`}>신청</button>
-              </div>
+              \${makeToggle("CRUX 과학Ⅰ", sel, canRefund && !blocked)}
             </div>`;
 
         } else if (series === "CRUX 과학Ⅱ") {
@@ -861,10 +875,7 @@ function renderNotice() {
                 </div>
                 ${subText}${note}
               </div>
-              <div style="display:flex;gap:6px;flex-shrink:0;">
-                <button ${(canRefund && !blocked) ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('CRUX 과학Ⅱ','환불')"` : `disabled style="${disabledStyle}"`}>취소</button>
-                <button ${(canRefund && !blocked) ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('CRUX 과학Ⅱ','신청')"` : `disabled style="${disabledStyle}"`}>신청</button>
-              </div>
+              \${makeToggle("CRUX 과학Ⅱ", sel, canRefund && !blocked)}
             </div>`;
 
         } else if (series === "CIRCUIT 과학Ⅰ") {
@@ -883,22 +894,16 @@ function renderNotice() {
                 </div>
                 ${subText}
               </div>
-              <div style="display:flex;gap:6px;flex-shrink:0;">
-                <button ${(canRefund && !blocked)
-                  ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
-                  : `disabled style="${disabledStyle}"`}>취소</button>
-                <button ${(canRefund && !blocked)
-                  ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
-                  : `disabled style="${disabledStyle}"`}>신청</button>
-              </div>
+              \${makeToggle(series, sel, canRefund && !blocked)}
             </div>`;
         }
       }
 
       // ── 일반 시리즈 처리 ──
+      const isCancelSel = sel === "환불" || sel === "취소";
       const nameRow = `
         <div style="display:flex;align-items:center;gap:8px;">
-          <div style="font-size:14px;font-weight:600;color:${canRefund?'#1a1a1a':'#bbb'};">${series}</div>
+          <div style="font-size:14px;font-weight:600;color:${canRefund?'#1a1a1a':'#bbb'};${isCancelSel?'text-decoration:line-through;color:#e5534b;':''}">${series}</div>
           ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
         </div>`;
       const subText = canRefund
@@ -910,14 +915,7 @@ function renderNotice() {
           <div style="flex:1;min-width:0;">
             ${nameRow}${subText}
           </div>
-          <div style="display:flex;gap:6px;flex-shrink:0;">
-            <button ${canRefund
-              ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='환불'?'#e5534b':'#e0e0e0'};background:${sel==='환불'?'#fef3f2':'#fafafa'};color:${sel==='환불'?'#e5534b':'#aaa'};" onclick="pickSeries('${series}','환불')"`
-              : `disabled style="${disabledStyle}"`}>취소</button>
-            <button ${canRefund
-              ? `style="padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;cursor:pointer;border:1.5px solid ${sel==='신청'?'#2BADA0':'#e0e0e0'};background:${sel==='신청'?'#e4f5f3':'#fafafa'};color:${sel==='신청'?'#2BADA0':'#aaa'};" onclick="pickSeries('${series}','신청')"`
-              : `disabled style="${disabledStyle}"`}>신청</button>
-          </div>
+          ${makeToggle(series, sel, canRefund)}
         </div>`;
     }).join("");
 
@@ -959,6 +957,21 @@ function pick(cid, val, btn) {
   );
   if (val === "환불") btn.classList.add("sel-refund");
   else               btn.classList.add("sel-apply");
+}
+
+function makeToggle(series, sel, canClick) {
+  const isCancel = sel === "환불" || sel === "취소";
+  const trackClass = isCancel ? "toggle-cancel" : "toggle-apply";
+  const dis = !canClick ? "disabled" : "";
+  const nextVal = isCancel ? "신청" : "환불";
+  const onclick = canClick ? `onclick="pickSeries('${series}','${nextVal}')"` : "";
+  return `<div class="toggle-wrap">
+    <span class="toggle-label" style="color:#2BADA0;">신청</span>
+    <div class="toggle-track ${trackClass} ${dis}" ${onclick}>
+      <div class="toggle-thumb"></div>
+    </div>
+    <span class="toggle-label" style="color:#e5534b;">취소</span>
+  </div>`;
 }
 
 function pickSeries(series, val) {
