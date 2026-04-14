@@ -454,9 +454,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script>
-/* ════════════════════════════════════════
-   ★ 여기를 채워주세요
-   ════════════════════════════════════════ */
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyDrwaQk4j8MM_XRw7zN2wQiEPBZiY4Mxq8",
   authDomain:        "contents-1910f.firebaseapp.com",
@@ -465,8 +462,6 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "19313028773",
   appId:             "1:19313028773:web:023ec211a18b826f0fa74c"
 };
-// Apps Script 불필요 — Firestore 직접 조회
-/* ════════════════════════════════════════ */
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
@@ -484,7 +479,6 @@ const DEFAULT_PRICES = {
   "CIRCUIT 과학Ⅰ":     7500,
 };
 
-/* ── 초기 콘텐츠 데이터 ── */
 const INITIAL_CONTENTS = [
   { id: "ko_crux_1",  name: "CRUX 공통국어 1회",           category: "국어",    order: 1,   deliveryDate: "2026-02-26" },
   { id: "ko_crux_2",  name: "CRUX 공통국어 2회",           category: "국어",    order: 2,   deliveryDate: "2026-03-05" },
@@ -591,24 +585,21 @@ const INITIAL_CONTENTS = [
   { id: "sc_crux_ii_6",  name: "CRUX 과학Ⅱ 6회",  category: "과학탐구", order: 103, deliveryDate: "2026-04-02" },
   { id: "sc_crux_ii_7",  name: "CRUX 과학Ⅱ 7회",  category: "과학탐구", order: 104, deliveryDate: "2026-04-09" },
   { id: "sc_crux_ii_8",  name: "CRUX 과학Ⅱ 8회",  category: "과학탐구", order: 105, deliveryDate: "2026-04-16" },
-  { id: "sc_ci_1_2",  name: "CIRCUIT 과학 1·2회",            category: "과학탐구", order: 106,  deliveryDate: "2026-04-09" },
-  { id: "sc_ci_3_4",  name: "CIRCUIT 과학 3·4회",            category: "과학탐구", order: 99,  deliveryDate: "2026-04-16" },
-  { id: "sc_ci_5_6",  name: "CIRCUIT 과학 5·6회",            category: "과학탐구", order: 100, deliveryDate: "2026-04-23" },
-  { id: "sc_ci_7_8",  name: "CIRCUIT 과학 7·8회",            category: "과학탐구", order: 101, deliveryDate: "2026-04-30" },
-  { id: "sc_ci_9_10", name: "CIRCUIT 과학 9·10회",           category: "과학탐구", order: 102, deliveryDate: "2026-05-07" },
-  { id: "sc_ci_11_12",name: "CIRCUIT 과학 11·12회",          category: "과학탐구", order: 103, deliveryDate: "2026-05-14" },
-  { id: "sc_ci_13_14",name: "CIRCUIT 과학 13·14회",          category: "과학탐구", order: 104, deliveryDate: "2026-05-20" },
-  { id: "sc_ci_15_16",name: "CIRCUIT 과학 15·16회",          category: "과학탐구", order: 105, deliveryDate: "2026-05-28" },
-  { id: "sc_ci_17_18",name: "CIRCUIT 과학 17·18회",          category: "과학탐구", order: 106, deliveryDate: "2026-06-05" },
-  { id: "sc_ci_19_20",name: "CIRCUIT 과학 19·20회",          category: "과학탐구", order: 107, deliveryDate: "2026-06-11" },
+  { id: "sc_ci_1_2",  name: "CIRCUIT 과학 1·2회",  category: "과학탐구", order: 106, deliveryDate: "2026-04-09" },
+  { id: "sc_ci_3_4",  name: "CIRCUIT 과학 3·4회",  category: "과학탐구", order: 107, deliveryDate: "2026-04-16" },
+  { id: "sc_ci_5_6",  name: "CIRCUIT 과학 5·6회",  category: "과학탐구", order: 108, deliveryDate: "2026-04-23" },
+  { id: "sc_ci_7_8",  name: "CIRCUIT 과학 7·8회",  category: "과학탐구", order: 109, deliveryDate: "2026-04-30" },
+  { id: "sc_ci_9_10", name: "CIRCUIT 과학 9·10회", category: "과학탐구", order: 110, deliveryDate: "2026-05-07" },
+  { id: "sc_ci_11_12",name: "CIRCUIT 과학 11·12회",category: "과학탐구", order: 111, deliveryDate: "2026-05-14" },
+  { id: "sc_ci_13_14",name: "CIRCUIT 과학 13·14회",category: "과학탐구", order: 112, deliveryDate: "2026-05-20" },
+  { id: "sc_ci_15_16",name: "CIRCUIT 과학 15·16회",category: "과학탐구", order: 113, deliveryDate: "2026-05-28" },
+  { id: "sc_ci_17_18",name: "CIRCUIT 과학 17·18회",category: "과학탐구", order: 114, deliveryDate: "2026-06-05" },
+  { id: "sc_ci_19_20",name: "CIRCUIT 과학 19·20회",category: "과학탐구", order: 115, deliveryDate: "2026-06-11" },
 ];
 
 async function seedContentsIfEmpty() {
-  // 이미 새 데이터(ko_crux_1)가 있으면 스킵
   const check = await db.collection("contents").doc("sc_crux_i_1").get();
   if (check.exists) return;
-
-  // 500개 이하라 단일 배치로 처리
   const batch = db.batch();
   INITIAL_CONTENTS.forEach(item => {
     const ref = db.collection("contents").doc(item.id);
@@ -621,7 +612,7 @@ async function seedContentsIfEmpty() {
     });
   });
   await batch.commit();
-  console.log("초기 콘텐츠 설정 완료: 107개");
+  console.log("초기 콘텐츠 설정 완료");
 }
 seedContentsIfEmpty();
 
@@ -632,7 +623,6 @@ let refundCutoff  = null;
 let seriesPrices  = {};
 let touchedSeries = new Set();
 
-/* ── UTILS ── */
 function toast(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg;
@@ -648,24 +638,18 @@ function today() { return new Date().toISOString().slice(0, 10); }
 function closeModal() { document.getElementById("loginModal").classList.remove("open"); }
 function openAdminLogin() { document.getElementById("loginModal").classList.add("open"); }
 
-/* ── STUDENT: lookup ── */
 async function lookupStudent() {
   const sid = document.getElementById("sidInput").value.trim();
   if (!sid) { setMsg("lookupMsg", "학번을 입력해주세요.", "error"); return; }
-
   const btn = document.getElementById("lookupBtn");
   btn.disabled = true;
   setMsg("lookupMsg", "조회 중...", "loading");
-
   try {
     const doc = await db.collection("students").doc(sid).get();
-
     if (!doc.exists) { setMsg("lookupMsg", "해당 학번을 찾을 수 없습니다.", "error"); return; }
-
     const data = doc.data();
     student = { id: sid, name: data.name, ban: data.ban, group: data.group, subjectType: data.subjectType || "", subject1: data.subject1 || "", subject2: data.subject2 || "" };
     setMsg("lookupMsg", "");
-
     document.getElementById("disp_name").textContent  = student.name;
     document.getElementById("disp_ban").textContent   = student.ban + "반";
     document.getElementById("disp_group").textContent = student.group + "그룹";
@@ -674,13 +658,11 @@ async function lookupStudent() {
     document.getElementById("inputGuide").style.fontSize = "12px";
     document.getElementById("inputGuide").style.fontWeight = "400";
     document.getElementById("disp_type").style.display = "none";
-    // 탐구 과목명 뱃지
     const t1el = document.getElementById("disp_t1");
     const t2el = document.getElementById("disp_t2");
     if (student.subject1) { t1el.textContent = student.subject1; t1el.style.display = ""; } else t1el.style.display = "none";
     if (student.subject2) { t2el.textContent = student.subject2; t2el.style.display = ""; } else t2el.style.display = "none";
     document.getElementById("studentInfoCard").style.display = "";
-
     await loadContentsAndPrev();
     renderNotice();
     renderContents();
@@ -691,7 +673,6 @@ async function lookupStudent() {
   }
 }
 
-/* ── STUDENT: load ── */
 async function loadContentsAndPrev() {
   const [cSnap, sDoc, settingDoc, priceSnap] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
@@ -705,7 +686,6 @@ async function loadContentsAndPrev() {
   seriesPrices = { ...DEFAULT_PRICES, ...(priceSnap.exists ? priceSnap.data() : {}) };
 }
 
-/* ── STUDENT: render ── */
 function getScienceStatus() {
   if (!student) return { countI: 0, countII: 0 };
   const t1 = student.subject1 || '';
@@ -713,18 +693,6 @@ function getScienceStatus() {
   const countI  = (t1.includes('Ⅰ') ? 1 : 0) + (t2.includes('Ⅰ') ? 1 : 0);
   const countII = (t1.includes('Ⅱ') ? 1 : 0) + (t2.includes('Ⅱ') ? 1 : 0);
   return { countI, countII };
-}
-
-// 시리즈별 과학 과목 블락 여부 (subType: 'Ⅰ' | 'Ⅱ' | null)
-function isScienceBlocked(series, subType) {
-  const { countI, countII } = getScienceStatus();
-  if (series === 'CRUX 과학') {
-    if (subType === 'Ⅰ') return countI === 0;
-    if (subType === 'Ⅱ') return countII === 0;
-    return countI === 0 && countII === 0;
-  }
-  if (series === 'CIRCUIT 과학Ⅰ') return countI === 0;
-  return false;
 }
 
 function formatDateKR(dateStr) {
@@ -739,12 +707,11 @@ function getSeriesName(name) {
   if (base.startsWith("CONNEX 수학")) return "CONNEX 수학";
   if (base === "CRUX 과학Ⅰ") return "CRUX 과학Ⅰ";
   if (base === "CRUX 과학Ⅱ") return "CRUX 과학Ⅱ";
-  if (base === "CRUX 과학") return "CRUX 과학Ⅰ"; // 구버전 호환
+  if (base === "CRUX 과학") return "CRUX 과학Ⅰ";
   if (base === "CIRCUIT 과학" || base === "CIRCUIT 과학Ⅰ") return "CIRCUIT 과학Ⅰ";
   return base;
 }
 
-// 선택키 → 화면 표시명 (배열이면 여러 행)
 const SERIES_DISPLAY = {
   "CIRCUIT 과학Ⅰ": ["CIRCUIT 과학Ⅰ"],
 };
@@ -757,6 +724,21 @@ function getFirstRound(name) {
   return m ? m[1] : name;
 }
 
+function makeToggle(series, sel, canClick) {
+  const isCancel = sel === "환불" || sel === "취소";
+  const trackClass = isCancel ? "toggle-cancel" : "toggle-apply";
+  const dis = !canClick ? "disabled" : "";
+  const nextVal = isCancel ? "신청" : "환불";
+  const onclick = canClick ? `onclick="pickSeries('${series}','${nextVal}')"` : "";
+  return `<div class="toggle-wrap">
+    <span class="toggle-label" style="color:#2BADA0;">신청</span>
+    <div class="toggle-track ${trackClass} ${dis}" ${onclick}>
+      <div class="toggle-thumb"></div>
+    </div>
+    <span class="toggle-label" style="color:#e5534b;">취소</span>
+  </div>`;
+}
+
 function renderNotice() {
   const el = document.getElementById("refundNotice");
   if (!refundCutoff) { el.style.display = "none"; return; }
@@ -767,7 +749,6 @@ function renderNotice() {
 
   if (!refundable.length) { el.style.display = "none"; return; }
 
-  // 전체 시리즈 목록 구성 — 미래 배부 항목이 하나라도 있으면 환불 가능
   const allSeriesMap = new Map();
   contents.sort((a,b) => a.order - b.order).forEach(item => {
     const series = getSeriesName(item.name);
@@ -776,7 +757,6 @@ function renderNotice() {
     }
     const entry = allSeriesMap.get(series);
     entry.hasAnyItem = true;
-    // 배부일이 가장 빠른 환불 가능 항목을 firstRefundable로
     if (item.deliveryDate && item.deliveryDate > refundCutoff) {
       if (!entry.firstRefundable || item.deliveryDate < entry.firstRefundable.deliveryDate) {
         entry.firstRefundable = item;
@@ -784,18 +764,15 @@ function renderNotice() {
     }
   });
 
-  // 카테고리 순서 정의
   const CAT_ORDER = ["국어", "수학", "영어", "과학탐구"];
   const catColors = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
 
-  // 시리즈에 카테고리 정보 추가
   const seriesCategory = new Map();
   contents.forEach(item => {
     const series = getSeriesName(item.name);
     if (!seriesCategory.has(series)) seriesCategory.set(series, item.category || "기타");
   });
 
-  // 카테고리별로 그룹핑
   const catGroups = {};
   allSeriesMap.forEach(({ firstRefundable, hasAnyItem }, series) => {
     const cat = seriesCategory.get(series) || "기타";
@@ -803,11 +780,8 @@ function renderNotice() {
     catGroups[cat].push({ series, firstRefundable, hasAnyItem });
   });
 
-  const disabledStyle = "opacity:0.3;cursor:not-allowed;padding:7px 14px;font-size:13px;font-weight:500;border-radius:8px;border:1.5px solid #e0e0e0;background:#fafafa;color:#ccc;";
-
   const rows = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
     const color = catColors[cat] || "#888";
-    // 다음 배부일 빠른 순 정렬, 배부 완료는 아래로
     const sorted = [...catGroups[cat]].sort((a, b) => {
       if (!a.firstRefundable && !b.firstRefundable) return 0;
       if (!a.firstRefundable) return 1;
@@ -827,7 +801,7 @@ function renderNotice() {
 
         if (series === "CRUX 과학Ⅰ") {
           const blocked = countI === 0;
-          const isSet   = countI >= 1 && countII >= 1; // Ⅰ+Ⅱ 세트
+          const isSet   = countI >= 1 && countII >= 1;
           const t1 = student.subject1 || ""; const t2 = student.subject2 || "";
           let note = "";
           const cruxIICanRefund = !!(allSeriesMap.get("CRUX 과학Ⅱ")?.firstRefundable);
@@ -843,12 +817,12 @@ function renderNotice() {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
               <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="font-size:14px;font-weight:600;color:${!blocked?(sel==='환불'||sel==='취소'?'#e5534b':'#1a1a1a'):'#bbb'};${sel==='환불'||sel==='취소'?'text-decoration:line-through;':''}>CRUX 과학Ⅰ</div>
+                  <div style="font-size:14px;font-weight:600;color:${!blocked ? '#1a1a1a' : '#bbb'};">CRUX 과학Ⅰ</div>
                   <div style="font-size:12px;color:#aaa;">${(seriesPrices["CRUX 과학"] || 7000).toLocaleString()}원${countI===2?' × 2':''}</div>
                 </div>
                 ${subText}${note}
               </div>
-              \${makeToggle("CRUX 과학Ⅰ", sel, canRefund && !blocked)}
+              ${makeToggle("CRUX 과학Ⅰ", sel, canRefund && !blocked)}
             </div>`;
 
         } else if (series === "CRUX 과학Ⅱ") {
@@ -870,12 +844,12 @@ function renderNotice() {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
               <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="font-size:14px;font-weight:600;color:${!blocked?'#1a1a1a':'#bbb'};">CRUX 과학Ⅱ</div>
+                  <div style="font-size:14px;font-weight:600;color:${!blocked ? '#1a1a1a' : '#bbb'};">CRUX 과학Ⅱ</div>
                   <div style="font-size:12px;color:#aaa;">${sciPrice.toLocaleString()}원${countII===2?' × 2':''}</div>
                 </div>
                 ${subText}${note}
               </div>
-              \${makeToggle("CRUX 과학Ⅱ", sel, canRefund && !blocked)}
+              ${makeToggle("CRUX 과학Ⅱ", sel, canRefund && !blocked)}
             </div>`;
 
         } else if (series === "CIRCUIT 과학Ⅰ") {
@@ -889,12 +863,12 @@ function renderNotice() {
             <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
               <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                  <div style="font-size:14px;font-weight:600;color:${!blocked?'#1a1a1a':'#bbb'};">CIRCUIT 과학Ⅰ</div>
+                  <div style="font-size:14px;font-weight:600;color:${!blocked ? '#1a1a1a' : '#bbb'};">CIRCUIT 과학Ⅰ</div>
                   ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원${countI===2?' × 2':''}</div>` : ""}
                 </div>
                 ${subText}
               </div>
-              \${makeToggle(series, sel, canRefund && !blocked)}
+              ${makeToggle(series, sel, canRefund && !blocked)}
             </div>`;
         }
       }
@@ -903,7 +877,7 @@ function renderNotice() {
       const isCancelSel = sel === "환불" || sel === "취소";
       const nameRow = `
         <div style="display:flex;align-items:center;gap:8px;">
-          <div style="font-size:14px;font-weight:600;color:${canRefund?'#1a1a1a':'#bbb'};${isCancelSel?'text-decoration:line-through;color:#e5534b;':''}">${series}</div>
+          <div style="font-size:14px;font-weight:600;color:${canRefund ? (isCancelSel ? '#e5534b' : '#1a1a1a') : '#bbb'};${isCancelSel ? 'text-decoration:line-through;' : ''}">${series}</div>
           ${price ? `<div style="font-size:12px;color:#aaa;">${price.toLocaleString()}원</div>` : ""}
         </div>`;
       const subText = canRefund
@@ -946,9 +920,7 @@ function renderNotice() {
   el.style.display = "";
 }
 
-function renderContents() {
-  // 개별 카드 사용 안 함 — renderNotice에서 처리
-}
+function renderContents() {}
 
 function pick(cid, val, btn) {
   selections[cid] = val;
@@ -959,25 +931,9 @@ function pick(cid, val, btn) {
   else               btn.classList.add("sel-apply");
 }
 
-function makeToggle(series, sel, canClick) {
-  const isCancel = sel === "환불" || sel === "취소";
-  const trackClass = isCancel ? "toggle-cancel" : "toggle-apply";
-  const dis = !canClick ? "disabled" : "";
-  const nextVal = isCancel ? "신청" : "환불";
-  const onclick = canClick ? `onclick="pickSeries('${series}','${nextVal}')"` : "";
-  return `<div class="toggle-wrap">
-    <span class="toggle-label" style="color:#2BADA0;">신청</span>
-    <div class="toggle-track ${trackClass} ${dis}" ${onclick}>
-      <div class="toggle-thumb"></div>
-    </div>
-    <span class="toggle-label" style="color:#e5534b;">취소</span>
-  </div>`;
-}
-
 function pickSeries(series, val) {
   selections[series] = val;
   touchedSeries.add(series);
-  // Ⅰ+Ⅱ 세트: 하나 변경하면 둘 다 연동
   const { countI, countII } = getScienceStatus();
   if (countI >= 1 && countII >= 1) {
     if (series === "CRUX 과학Ⅰ") { selections["CRUX 과학Ⅱ"] = val; touchedSeries.add("CRUX 과학Ⅱ"); }
@@ -996,33 +952,28 @@ function resetStudentView() {
   document.getElementById("studentInfoCard").style.display = "none";
   document.getElementById("refundNotice").style.display    = "none";
   document.getElementById("contentsSection").style.display = "none";
-  const hint = document.getElementById("lookupHint");
-  hint.textContent      = "학생증을 태깅해주세요";
-  hint.style.color      = "#2BADA0";
-  hint.style.fontSize   = "13px";
-  hint.style.fontWeight = "500";
+  document.getElementById("inputGuide").textContent = "학생증을 태깅해주세요";
+  document.getElementById("inputGuide").style.color = "#2BADA0";
+  document.getElementById("inputGuide").style.fontSize = "13px";
+  document.getElementById("inputGuide").style.fontWeight = "500";
   setMsg("lookupMsg", "");
 }
 
-/* ── STUDENT: submit ── */
 async function submitSelections() {
   if (!student) return;
   const btn = document.getElementById("submitBtn");
   btn.disabled = true;
   setMsg("submitMsg", "저장 중...", "loading");
   try {
-    // 실제로 버튼을 누른 콘텐츠만 필터
     const touchedSelections = {};
     touchedSeries.forEach(series => {
       if (selections[series]) touchedSelections[series] = selections[series];
     });
-
     if (Object.keys(touchedSelections).length === 0) {
       setMsg("submitMsg", "변경한 콘텐츠가 없습니다.", "error");
       btn.disabled = false;
       return;
     }
-
     const submitData = {
       studentId: student.id, name: student.name,
       ban: student.ban, group: student.group,
@@ -1032,7 +983,6 @@ async function submitSelections() {
       cutoffDate: refundCutoff || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
-    // 현재 선택값 유지 (재방문 시 불러오기용)
     await db.collection("submissions").doc(student.id).set({
       studentId: student.id, name: student.name,
       ban: student.ban, group: student.group,
@@ -1040,7 +990,6 @@ async function submitSelections() {
       cutoffDate: refundCutoff || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // 이력 추가 저장 (touched만)
     await db.collection("submissionHistory").add(submitData);
     toast("✓ 저장되었습니다");
     setTimeout(() => resetStudentView(), 1500);
@@ -1052,7 +1001,6 @@ async function submitSelections() {
   }
 }
 
-/* ── ADMIN: auth ── */
 async function adminLogin() {
   const email = document.getElementById("loginEmail").value.trim();
   const pw    = document.getElementById("loginPw").value;
@@ -1076,7 +1024,6 @@ async function adminLogout() {
   document.getElementById("studentView").style.display = "";
 }
 
-/* ── ADMIN: refund cutoff ── */
 async function saveCutoffDate() {
   const val = document.getElementById("cutoffDate").value;
   if (!val) { setMsg("cutoffMsg", "날짜를 선택해주세요.", "error"); return; }
@@ -1092,25 +1039,19 @@ async function loadCutoffDate() {
   }
 }
 
-/* ── ADMIN: contents ── */
 async function addContent() {
   const name     = document.getElementById("newName").value.trim();
   const delivery = document.getElementById("newDelivery").value;
-  const refund   = document.getElementById("newRefund").value;
   if (!name) { toast("콘텐츠 이름을 입력해주세요"); return; }
-
   const snap = await db.collection("contents").orderBy("order","desc").limit(1).get();
   const lastOrder = snap.empty ? 0 : (snap.docs[0].data().order || 0);
-
   const category = document.getElementById("newCategory").value;
   await db.collection("contents").add({
-    name,
-    category,
+    name, category,
     deliveryDate: delivery || null,
     order: lastOrder + 1,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-
   document.getElementById("newName").value     = "";
   document.getElementById("newDelivery").value = "";
   toast("콘텐츠가 추가되었습니다");
@@ -1130,13 +1071,12 @@ async function loadAdminContents() {
     db.collection("settings").doc("prices").get()
   ]);
   const adminPrices = { ...DEFAULT_PRICES, ...(priceDoc.exists ? priceDoc.data() : {}) };
-  const el   = document.getElementById("adminContentList");
+  const el = document.getElementById("adminContentList");
   if (snap.empty) { el.innerHTML = '<div class="empty">등록된 콘텐츠가 없습니다</div>'; return; }
 
   const CAT_ORDER = ["국어", "수학", "영어", "과학탐구"];
   const catColors = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
 
-  // 카테고리별 그룹핑 → 시리즈별 그룹핑
   const catGroups = {};
   snap.docs.forEach(d => {
     const data = { id: d.id, ...d.data() };
@@ -1160,7 +1100,6 @@ async function loadAdminContents() {
             onchange="updateDeliveryDate('${item.id}', this.value)" />
           <button class="btn btn-danger btn-sm" onclick="deleteContent('${item.id}')" style="padding:5px 10px;">삭제</button>
         </div>`).join("");
-
       return `
         <div style="margin-bottom:10px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
           <div style="padding:8px 12px;background:#f8f8f6;border-bottom:1px solid #ebebeb;display:flex;align-items:center;justify-content:space-between;gap:12px;">
@@ -1175,7 +1114,6 @@ async function loadAdminContents() {
           ${itemRows}
         </div>`;
     }).join("");
-
     return `
       <div style="margin-bottom:1.25rem;">
         <div style="font-size:12px;font-weight:700;color:${color};letter-spacing:0.05em;padding:4px 0 6px;border-bottom:2px solid ${color};margin-bottom:10px;">${cat}</div>
@@ -1216,12 +1154,10 @@ function toggleAllCheck() {
   all.forEach(cb => cb.checked = !allChecked);
 }
 
-/* ── ADMIN: 학번 검색 ── */
 async function searchStudentStatus() {
   const sid = document.getElementById("adminSidInput").value.trim();
   const el  = document.getElementById("studentStatusResult");
   if (!sid) { el.style.display = "none"; return; }
-
   el.style.display = "";
   el.innerHTML = '<div class="empty">검색 중...</div>';
 
@@ -1241,7 +1177,6 @@ async function searchStudentStatus() {
   const subs     = subDoc.exists ? (subDoc.data().selections || {}) : {};
   const contents = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-  // 시리즈별 최신 이력 맵 { series: { val, round, updatedAt } }
   const historyMap = {};
   histSnap.docs.forEach(d => {
     const h = d.data();
@@ -1250,7 +1185,6 @@ async function searchStudentStatus() {
       : "";
     Object.entries(h.selections || {}).forEach(([series, val]) => {
       if (!historyMap[series]) {
-        // 해당 cutoffDate 기준으로 마지막 회차 찾기
         const cutoff = h.cutoffDate || null;
         let lastRound = "";
         if (cutoff) {
@@ -1264,18 +1198,15 @@ async function searchStudentStatus() {
     });
   });
 
-  // 카테고리 순서
   const CAT_ORDER  = ["국어","수학","영어","과학탐구"];
   const catColors  = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
 
-  // 시리즈 → 카테고리 맵
   const seriesCatMap = {};
   contents.forEach(item => {
     const s = getSeriesName(item.name);
     if (!seriesCatMap[s]) seriesCatMap[s] = item.category || "기타";
   });
 
-  // 카테고리별 그룹핑
   const catGroups = {};
   const allSeries = new Set([...Object.keys(subs), ...Object.keys(historyMap)]);
   allSeries.forEach(series => {
@@ -1286,7 +1217,6 @@ async function searchStudentStatus() {
 
   const catRows = CAT_ORDER.filter(cat => catGroups[cat]).map(cat => {
     const color = catColors[cat] || "#888";
-    // 학생 탐구 과목 수
     const sCountI  = ((stu.subject1||"").includes("Ⅰ")?1:0) + ((stu.subject2||"").includes("Ⅰ")?1:0);
     const sCountII = ((stu.subject1||"").includes("Ⅱ")?1:0) + ((stu.subject2||"").includes("Ⅱ")?1:0);
     const isSaTam  = stu.subjectType && stu.subjectType.includes("🟡");
@@ -1296,7 +1226,6 @@ async function searchStudentStatus() {
       const hist      = historyMap[series];
       const dispNames = getDisplayNames(series).join(" · ");
 
-      // 과학탐구 해당없음 판단
       let isNA = false;
       if (cat === "과학탐구") {
         if (isSaTam) isNA = true;
@@ -1346,7 +1275,6 @@ async function searchStudentStatus() {
     </div>`;
 }
 
-/* ── ADMIN: submissions ── */
 async function loadSubmissions() {
   const [cSnap, sSnap] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
@@ -1376,7 +1304,6 @@ async function loadSubmissions() {
     </tr>`).join("");
 }
 
-/* ── ADMIN: 변경 처리 ── */
 let _showOnlyUnprocessed = false;
 
 function toggleFilter() {
@@ -1389,19 +1316,14 @@ function toggleFilter() {
 }
 
 async function onMonthToggle(ym, checked) {
-  // 1. 체크박스 스타일 즉시 업데이트
   const label = document.querySelector(`[data-month="${ym}"]`)?.closest("label");
   if (label) {
     label.style.borderColor = checked ? "#ED0081" : "#e0e0e0";
     label.style.background  = checked ? "#fdf0f7" : "#fff";
   }
-
-  // 2. 해당 월 행 표시/숨김
   document.querySelectorAll(`.month-row[data-month="${ym}"]`).forEach(row => {
     row.style.display = checked ? "flex" : "none";
   });
-
-  // 3. 합계 즉시 재계산
   document.querySelectorAll(".student-card").forEach(card => {
     let total = 0;
     card.querySelectorAll(".month-row[data-amount]").forEach(row => {
@@ -1417,8 +1339,6 @@ async function onMonthToggle(ym, checked) {
       totalEl.textContent = `표시 합계: ${total > 0 ? "+" : ""}${total.toLocaleString()}원`;
     }
   });
-
-  // 4. Firestore 저장
   const allChecks = document.querySelectorAll("#monthFilters input[type=checkbox]");
   const visibleMonths = Array.from(allChecks).filter(cb => cb.checked).map(cb => cb.dataset.month);
   await db.collection("settings").doc("monthFilter").set({ visibleMonths });
@@ -1451,7 +1371,6 @@ async function loadChanges() {
     .map(d => ({ docId: d.id, ...d.data() }))
     .filter(s => s.selections && Object.keys(s.selections).length > 0);
 
-  // 미처리만 보기 필터 (해당 시점 기준)
   if (_showOnlyUnprocessed) {
     changed = changed.filter(s => {
       const period = s.cutoffDate || "기준일 미설정";
@@ -1464,12 +1383,9 @@ async function loadChanges() {
     return;
   }
 
-  // submissionHistory는 이미 updatedAt desc 정렬
-
   const priceDoc2 = await db.collection("settings").doc("prices").get();
   const priceMap  = { ...DEFAULT_PRICES, ...(priceDoc2.exists ? priceDoc2.data() : {}) };
 
-  // 전체 월 목록 수집
   const allMonths = new Set();
   changed.forEach(s => {
     contents.forEach(item => {
@@ -1479,11 +1395,9 @@ async function loadChanges() {
   });
   const sortedMonths = Array.from(allMonths).sort();
 
-  // Firestore 저장값 or 전체 기본 표시
   const savedMonths   = monthDoc.exists ? (monthDoc.data().visibleMonths || null) : null;
   const visibleMonths = new Set(savedMonths || sortedMonths);
 
-  // 체크박스 렌더링
   const mfEl = document.getElementById("monthFilters");
   if (mfEl) {
     mfEl.innerHTML = sortedMonths.map(m => {
@@ -1498,13 +1412,10 @@ async function loadChanges() {
 
   el.innerHTML = changed.map(s => {
     const period = s.cutoffDate || "기준일 미설정";
-
-    // 학생 탐구 과목 수
     const sCountI  = ((s.subject1||"").includes("Ⅰ")?1:0) + ((s.subject2||"").includes("Ⅰ")?1:0);
     const sCountII = ((s.subject1||"").includes("Ⅱ")?1:0) + ((s.subject2||"").includes("Ⅱ")?1:0);
 
     let totalAmount = 0;
-    // 신청/취소 분리
     const applyEntries  = Object.entries(s.selections || {}).filter(([,v]) => v !== "취소" && v !== "환불");
     const cancelEntries = Object.entries(s.selections || {}).filter(([,v]) => v === "취소" || v === "환불");
 
@@ -1620,14 +1531,11 @@ async function loadChanges() {
   }).join("");
 }
 
-
 async function toggleProcessed(docId, period, newVal) {
   const now = new Date().toLocaleString("ko-KR", {
     month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit"
   });
-  const updates = {
-    [`processedByPeriod.${period}`]: newVal
-  };
+  const updates = { [`processedByPeriod.${period}`]: newVal };
   if (newVal) {
     updates[`processedAtByPeriod.${period}`]   = now;
     updates[`unprocessedAtByPeriod.${period}`] = null;
@@ -1650,7 +1558,6 @@ async function saveMemo(docId, period, memo) {
   }
 }
 
-/* ── ADMIN: excel ── */
 async function exportExcel() {
   const [cSnap, sSnap] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
@@ -1671,7 +1578,6 @@ async function exportExcel() {
   XLSX.writeFile(wb, `CAMPUSM_신청취소_${today()}.xlsx`);
 }
 
-/* ── TABS ── */
 function switchTab(idx) {
   document.querySelectorAll(".tab").forEach((t,i) => t.classList.toggle("active", i === idx));
   document.querySelectorAll(".tab-pane").forEach((p,i) => p.classList.toggle("active", i === idx));
@@ -1680,7 +1586,6 @@ function switchTab(idx) {
   if (idx === 2) loadChanges();
 }
 
-/* ── AUTH 상태 유지 (F5 후 관리자 유지) ── */
 auth.onAuthStateChanged(user => {
   if (user) {
     document.getElementById("studentView").style.display = "none";
@@ -1695,7 +1600,6 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-/* ── KEYBOARD ── */
 document.getElementById("sidInput").addEventListener("keydown", e => { if (e.key === "Enter") lookupStudent(); });
 document.getElementById("loginPw").addEventListener("keydown",  e => { if (e.key === "Enter") adminLogin(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
