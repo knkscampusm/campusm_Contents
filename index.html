@@ -346,7 +346,10 @@
 <div id="adminView" style="display:none;" class="main">
 
   <div class="row sb" style="margin-bottom:1rem;">
-    <div style="font-size:16px;font-weight:700;">관리자 패널</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:16px;font-weight:700;">관리자 패널</div>
+      <div id="currentStaffBadge" style="font-size:12px;color:#2BADA0;background:#e4f5f3;padding:3px 10px;border-radius:20px;font-weight:600;"></div>
+    </div>
     <button class="btn btn-outline btn-sm" onclick="adminLogout()">로그아웃</button>
   </div>
 
@@ -498,8 +501,8 @@
   <div class="modal">
     <h2>관리자 로그인</h2>
     <div class="field">
-      <label>이메일</label>
-      <input type="email" id="loginEmail" placeholder="이메일 입력" />
+      <label>이름</label>
+      <input type="text" id="loginName" placeholder="이름 입력" />
     </div>
     <div class="field">
       <label>비밀번호</label>
@@ -1277,25 +1280,58 @@ async function doSubmit() {
   }
 }
 
+let _currentStaff = "";  // 현재 로그인한 직원 이름
+
+function setStaffBadge(name) {
+  _currentStaff = name;
+  const el = document.getElementById("currentStaffBadge");
+  if (el) el.textContent = name ? name + " 님" : "";
+}
+
 async function adminLogin() {
-  const email = document.getElementById("loginEmail").value.trim();
-  const pw    = document.getElementById("loginPw").value;
+  const name = document.getElementById("loginName").value.trim();
+  const pw   = document.getElementById("loginPw").value;
+  if (!name) { setMsg("loginMsg", "이름을 입력해주세요.", "error"); return; }
+  if (!pw)   { setMsg("loginMsg", "비밀번호를 입력해주세요.", "error"); return; }
   setMsg("loginMsg", "로그인 중...", "loading");
   try {
-    await auth.signInWithEmailAndPassword(email, pw);
+    // Firestore staff 컬렉션에서 이름으로 조회
+    const snap = await db.collection("staff").where("name", "==", name).limit(1).get();
+    if (snap.empty) {
+      setMsg("loginMsg", "이름 또는 비밀번호가 올바르지 않습니다.", "error"); return;
+    }
+    const staffData = snap.docs[0].data();
+    if (staffData.password !== pw) {
+      setMsg("loginMsg", "이름 또는 비밀번호가 올바르지 않습니다.", "error"); return;
+    }
+    if (staffData.active === false) {
+      setMsg("loginMsg", "비활성화된 계정입니다.", "error"); return;
+    }
+    // Firebase Auth는 공용 계정으로 로그인 (Firestore 보안용)
+    await auth.signInWithEmailAndPassword(
+      staffData.authEmail || "admin@campus.internal",
+      staffData.authPassword || pw
+    ).catch(() => {});  // Auth 실패해도 staff 로그인은 유지
+
+    // 브라우저에 직원 정보 저장
+    sessionStorage.setItem("staffName", name);
+    setStaffBadge(name);
+
     closeModal();
     document.getElementById("studentView").style.display = "none";
     document.getElementById("adminView").style.display   = "";
     loadCutoffDate();
     loadAdminContents();
     loadSubmissions();
-  } catch {
-    setMsg("loginMsg", "이메일 또는 비밀번호를 확인해주세요.", "error");
+  } catch(err) {
+    setMsg("loginMsg", "로그인 실패: " + err.message, "error");
   }
 }
 
 async function adminLogout() {
   await auth.signOut();
+  sessionStorage.removeItem("staffName");
+  setStaffBadge("");
   document.getElementById("adminView").style.display   = "none";
   document.getElementById("studentView").style.display = "";
 }
@@ -2034,13 +2070,16 @@ async function toggleProcessed(docId, period, newVal) {
   const now = new Date().toLocaleString("ko-KR", {
     month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit"
   });
+  const staffLabel = _currentStaff ? ` (${_currentStaff})` : "";
   const updates = { [`processedByPeriod.${period}`]: newVal };
   if (newVal) {
-    updates[`processedAtByPeriod.${period}`]   = now;
+    updates[`processedAtByPeriod.${period}`]   = now + staffLabel;
     updates[`unprocessedAtByPeriod.${period}`] = null;
+    updates[`processedByStaff.${period}`]      = _currentStaff || "";
   } else {
-    updates[`unprocessedAtByPeriod.${period}`] = now;
+    updates[`unprocessedAtByPeriod.${period}`] = now + staffLabel;
     updates[`processedAtByPeriod.${period}`]   = null;
+    updates[`processedByStaff.${period}`]      = "";
   }
   await db.collection("submissionHistory").doc(docId).update(updates);
   loadChanges();
@@ -2189,6 +2228,9 @@ function switchTab(idx) {
 
 auth.onAuthStateChanged(user => {
   if (user) {
+    // sessionStorage에서 직원 이름 복원
+    const savedStaff = sessionStorage.getItem("staffName") || "";
+    setStaffBadge(savedStaff);
     document.getElementById("studentView").style.display = "none";
     document.getElementById("adminView").style.display   = "";
     const savedTab = parseInt(localStorage.getItem("adminTab") || "0");
@@ -2202,6 +2244,7 @@ auth.onAuthStateChanged(user => {
 });
 
 document.getElementById("sidInput").addEventListener("keydown", e => { if (e.key === "Enter") lookupStudent(); });
+document.getElementById("loginName")?.addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("loginPw").focus(); });
 document.getElementById("loginPw").addEventListener("keydown",  e => { if (e.key === "Enter") adminLogin(); });
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") {
