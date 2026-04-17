@@ -433,16 +433,8 @@
             oninput="searchChangeCard(this.value)" />
         </div>
       </div>
-      <!-- 학생 네비게이션 -->
-      <div id="cardNav" style="display:none;align-items:center;justify-content:space-between;margin-bottom:0.75rem;padding:8px 12px;background:#f8f8f6;border-radius:10px;">
-        <button onclick="navCard(-1)" style="padding:5px 12px;font-size:13px;font-weight:700;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">‹</button>
-        <div style="text-align:center;">
-          <div id="cardNavName" style="font-size:13px;color:#1a1a1a;font-weight:700;"></div>
-          <div id="cardNavCount" style="font-size:11px;color:#ED0081;font-weight:600;margin-top:1px;"></div>
-        </div>
-        <button onclick="navCard(1)" style="padding:5px 12px;font-size:13px;font-weight:700;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">›</button>
-      </div>
-      <div id="changeList"><div class="empty">데이터를 불러오는 중...</div></div>
+
+      <div id="changeList" style="max-height:75vh;overflow-y:auto;"><div class="empty">데이터를 불러오는 중...</div></div>
     </div>
   </div>
 
@@ -1742,6 +1734,50 @@ function toggleFilter() {
   loadChanges();
 }
 
+async function onAllMonthToggle(checked) {
+  const allCheckboxes = document.querySelectorAll("#monthFilters input[data-month]");
+  // 각 월 토글 순차 실행
+  for (const cb of allCheckboxes) {
+    if (cb.checked !== checked) {
+      cb.checked = checked;
+      const label = cb.closest("label");
+      if (label) {
+        label.style.borderColor = checked ? "#ED0081" : "#e0e0e0";
+        label.style.background  = checked ? "#fdf0f7" : "#fff";
+      }
+      document.querySelectorAll(`.month-row[data-month="${cb.dataset.month}"]`).forEach(row => {
+        row.style.display = checked ? "flex" : "none";
+      });
+    }
+  }
+  // 합계 재계산
+  document.querySelectorAll(".student-card").forEach(card => {
+    let total = 0;
+    card.querySelectorAll(".month-row[data-amount]").forEach(row => {
+      if (row.style.display !== "none") total += parseInt(row.dataset.amount || "0");
+    });
+    const totalEl = card.querySelector(".monthly-total");
+    if (totalEl) {
+      if (total === 0) { totalEl.style.display = "none"; return; }
+      totalEl.style.display = "";
+      totalEl.style.color = total < 0 ? "#e5534b" : "#2BADA0";
+      totalEl.textContent = `표시 합계: ${total > 0 ? "+" : ""}${total.toLocaleString()}원`;
+    }
+  });
+  // 전체 체크박스 스타일
+  const allCb = document.getElementById("monthAllCheck");
+  if (allCb) {
+    const label = allCb.closest("label");
+    if (label) {
+      label.style.borderColor = checked ? "#ED0081" : "#e0e0e0";
+      label.style.background  = checked ? "#fdf0f7" : "#fff";
+    }
+  }
+  // Firestore 저장
+  const visibleMonths = Array.from(allCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.month);
+  await db.collection("settings").doc("monthFilter").set({ visibleMonths });
+}
+
 async function onMonthToggle(ym, checked) {
   const label = document.querySelector(`[data-month="${ym}"]`)?.closest("label");
   if (label) {
@@ -1766,9 +1802,18 @@ async function onMonthToggle(ym, checked) {
       totalEl.textContent = `표시 합계: ${total > 0 ? "+" : ""}${total.toLocaleString()}원`;
     }
   });
-  const allChecks = document.querySelectorAll("#monthFilters input[type=checkbox]");
+  const allChecks = document.querySelectorAll("#monthFilters input[data-month]");
   const visibleMonths = Array.from(allChecks).filter(cb => cb.checked).map(cb => cb.dataset.month);
   await db.collection("settings").doc("monthFilter").set({ visibleMonths });
+
+  // 전체 체크박스 상태 연동
+  const allCb = document.getElementById("monthAllCheck");
+  if (allCb) {
+    const isAll = Array.from(allChecks).every(cb => cb.checked);
+    allCb.checked = isAll;
+    const lbl = allCb.closest("label");
+    if (lbl) { lbl.style.borderColor = isAll?"#ED0081":"#e0e0e0"; lbl.style.background = isAll?"#fdf0f7":"#fff"; }
+  }
 }
 
 async function loadChanges() {
@@ -1857,7 +1902,6 @@ async function loadChanges() {
 
   if (!changed.length) {
     el.innerHTML = `<div class="empty">${_showOnlyUnprocessed ? "미처리 내역이 없습니다 🎉" : "변경 내역이 없습니다"}</div>`;
-    document.getElementById("cardNav").style.display = "none";
     return;
   }
 
@@ -1878,7 +1922,12 @@ async function loadChanges() {
 
   const mfEl = document.getElementById("monthFilters");
   if (mfEl) {
-    mfEl.innerHTML = sortedMonths.map(m => {
+    const allChecked = sortedMonths.every(m => visibleMonths.has(m));
+    const allLabel = `<label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#555;cursor:pointer;padding:3px 6px;border:1px solid ${allChecked?"#ED0081":"#e0e0e0"};border-radius:16px;background:${allChecked?"#fdf0f7":"#fff"};font-weight:700;">
+      <input type="checkbox" id="monthAllCheck" ${allChecked?"checked":""} style="accent-color:#ED0081;width:14px;height:14px;"
+        onchange="onAllMonthToggle(this.checked)"> 전체
+    </label>`;
+    mfEl.innerHTML = allLabel + sortedMonths.map(m => {
       const label   = monthNames[m.slice(5,7)] || m;
       const checked = visibleMonths.has(m);
       return `<label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#555;cursor:pointer;padding:3px 6px;border:1px solid ${checked?"#ED0081":"#e0e0e0"};border-radius:16px;background:${checked?"#fdf0f7":"#fff"};">
@@ -1887,28 +1936,6 @@ async function loadChanges() {
       </label>`;
     }).join("");
   }
-
-  // 네비게이션 상태
-  let _currentCardIdx = 0;
-
-  function updateCardNav() {
-    const cards = el.querySelectorAll(".student-card");
-    const nav   = document.getElementById("cardNav");
-    const nameEl  = document.getElementById("cardNavName");
-    const countEl2 = document.getElementById("cardNavCount");
-    if (!cards.length) { nav.style.display = "none"; return; }
-    nav.style.display = "flex";
-    cards.forEach((c, i) => c.style.display = i === _currentCardIdx ? "" : "none");
-    const cur = cards[_currentCardIdx];
-    if (nameEl)  nameEl.textContent  = `${cur.dataset.name || ""} (${_currentCardIdx + 1} / ${cards.length})`;
-    if (countEl2) countEl2.textContent = `미처리 ${unprocessedCount}건`;
-  }
-
-  window.navCard = function(dir) {
-    const cards = el.querySelectorAll(".student-card");
-    _currentCardIdx = (_currentCardIdx + dir + cards.length) % cards.length;
-    updateCardNav();
-  };
 
   el.innerHTML = changed.map(s => {
     const period = s.cutoffDate || "기준일 미설정";
@@ -1998,7 +2025,7 @@ async function loadChanges() {
       : "";
 
     return `
-      <div class="student-card" data-name="${s.name}" data-sid="${s.studentId}" style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};display:none;">
+      <div class="student-card" data-name="${s.name}" data-sid="${s.studentId}" style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
           <div style="flex:1;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
@@ -2029,7 +2056,6 @@ async function loadChanges() {
         </div>
       </div>`;
   }).join("");
-  updateCardNav();
 }
 
 function searchChangeCard(val) {
@@ -2037,25 +2063,9 @@ function searchChangeCard(val) {
   const cards = changeList.querySelectorAll(".student-card");
   if (!cards.length) return;
   const q = val.trim();
-  if (!q) {
-    // 검색어 없으면 네비게이션 모드로 복귀
-    const nav = document.getElementById("cardNav");
-    nav.style.display = "flex";
-    cards.forEach((c, i) => { c.style.display = i === 0 ? "" : "none"; });
-    if (window._currentCardIdxRef !== undefined) window._currentCardIdxRef[0] = 0;
-    const nameEl = document.getElementById("cardNavName");
-    const countEl2 = document.getElementById("cardNavCount");
-    if (nameEl) nameEl.textContent = `${cards[0].dataset.name || ""} (1 / ${cards.length})`;
-    return;
-  }
-  // 검색어 있으면 일치하는 카드만 표시, 네비게이션 숨김
-  document.getElementById("cardNav").style.display = "none";
-  let found = false;
   cards.forEach(c => {
     const sid = c.dataset.sid || "";
-    const match = sid.includes(q);
-    c.style.display = match ? "" : "none";
-    if (match) found = true;
+    c.style.display = (!q || sid.includes(q)) ? "" : "none";
   });
 }
 
