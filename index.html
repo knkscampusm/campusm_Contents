@@ -1307,12 +1307,6 @@ async function adminLogin() {
     if (staffData.active === false) {
       setMsg("loginMsg", "비활성화된 계정입니다.", "error"); return;
     }
-    // Firebase Auth는 공용 계정으로 로그인 (Firestore 보안용)
-    await auth.signInWithEmailAndPassword(
-      staffData.authEmail || "admin@campus.internal",
-      staffData.authPassword || pw
-    ).catch(() => {});  // Auth 실패해도 staff 로그인은 유지
-
     // 브라우저에 직원 정보 저장
     sessionStorage.setItem("staffName", name);
     setStaffBadge(name);
@@ -1329,7 +1323,6 @@ async function adminLogin() {
 }
 
 async function adminLogout() {
-  await auth.signOut();
   sessionStorage.removeItem("staffName");
   setStaffBadge("");
   document.getElementById("adminView").style.display   = "none";
@@ -2226,10 +2219,10 @@ function switchTab(idx) {
   if (idx === 2) loadChanges();
 }
 
-auth.onAuthStateChanged(user => {
-  if (user) {
-    // sessionStorage에서 직원 이름 복원
-    const savedStaff = sessionStorage.getItem("staffName") || "";
+// Firebase Auth 대신 sessionStorage 기반으로 관리자 상태 복원
+(function checkStaffSession() {
+  const savedStaff = sessionStorage.getItem("staffName") || "";
+  if (savedStaff) {
     setStaffBadge(savedStaff);
     document.getElementById("studentView").style.display = "none";
     document.getElementById("adminView").style.display   = "";
@@ -2241,7 +2234,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById("adminView").style.display   = "none";
     document.getElementById("studentView").style.display = "";
   }
-});
+})();
 
 document.getElementById("sidInput").addEventListener("keydown", e => { if (e.key === "Enter") lookupStudent(); });
 document.getElementById("loginName")?.addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("loginPw").focus(); });
