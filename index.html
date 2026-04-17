@@ -1855,16 +1855,21 @@ async function loadChanges() {
   rawDocs.forEach(s => {
     const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
     if (!groupMap.has(key)) {
-      // 첫 등장: 기본 틀 생성 (최신 docId/meta는 나중에 덮어씀)
-      groupMap.set(key, { ...s, selections: { ...s.selections }, _historyCount: 1 });
+      // 첫 등장: 시리즈별 이력 추적 초기화
+      const seriesHistory = {};
+      Object.entries(s.selections || {}).forEach(([series, val]) => {
+        seriesHistory[series] = [{ val, cutoffDate: s.cutoffDate }];
+      });
+      groupMap.set(key, { ...s, selections: { ...s.selections }, _historyCount: 1, _seriesHistory: seriesHistory });
     } else {
       const existing = groupMap.get(key);
       existing._historyCount = (existing._historyCount || 1) + 1;
-      // 선택값 병합: 최신 값으로 덮어쓰기
+      // 선택값 병합: 최신 값으로 덮어쓰기 + 이력 누적
       Object.entries(s.selections || {}).forEach(([series, val]) => {
         existing.selections[series] = val;
+        if (!existing._seriesHistory[series]) existing._seriesHistory[series] = [];
+        existing._seriesHistory[series].push({ val, cutoffDate: s.cutoffDate });
       });
-      // 최신 메타(docId, updatedAt, processedByPeriod 등)는 나중 문서 기준
       existing.docId         = s.docId;
       existing.updatedAt     = s.updatedAt;
       existing.processedByPeriod    = s.processedByPeriod    || existing.processedByPeriod;
@@ -1942,9 +1947,70 @@ async function loadChanges() {
     const sCountI  = ((s.subject1||"").includes("Ⅰ")?1:0) + ((s.subject2||"").includes("Ⅰ")?1:0);
     const sCountII = ((s.subject1||"").includes("Ⅱ")?1:0) + ((s.subject2||"").includes("Ⅱ")?1:0);
 
+    // ── 상계/차이 회차 분석 ──
+    // 미처리인 경우에만 상계 처리
+    const isUnprocessed = !(s.processedByPeriod && s.processedByPeriod[period]);
+    const seriesHistory = s._seriesHistory || {};
+
+    // 시리즈별 번복 분석 결과
+    // { series: { netted: true } | { partial: true, partialItems: [...], finalVal } | null }
+    const seriesNetInfo = {};
+    if (isUnprocessed) {
+      Object.entries(seriesHistory).forEach(([series, hist]) => {
+        if (hist.length < 2) return; // 번복 없음
+        const first = hist[0];
+        const last  = hist[hist.length - 1];
+        const firstVal = first.val;
+        const lastVal  = last.val;
+        const firstIsCancel = firstVal === "취소" || firstVal === "환불";
+        const lastIsCancel  = lastVal  === "취소" || lastVal  === "환불";
+
+        // 첫 번째와 마지막 기준일 비교
+        const firstCutoff = first.cutoffDate || "";
+        const lastCutoff  = last.cutoffDate  || "";
+
+        if (firstCutoff === lastCutoff) {
+          // 케이스 1: 같은 기준일 번복 → 상계
+          seriesNetInfo[series] = { netted: true };
+        } else {
+          // 케이스 2: 다른 기준일 번복 → 차이 회차만 처리
+          // 기준일이 이른 쪽 ~ 늦은 쪽 직전 회차만
+          const [earlierCutoff, laterCutoff] = firstCutoff < lastCutoff
+            ? [firstCutoff, lastCutoff]
+            : [lastCutoff, firstCutoff];
+
+          // earlierCutoff 이후 ~ laterCutoff 이하 회차 (차이 구간)
+          const partialItems = contents
+            .filter(item => {
+              const sn = getSeriesName(item.name);
+              return sn === series
+                && item.deliveryDate
+                && item.deliveryDate > earlierCutoff
+                && item.deliveryDate <= laterCutoff;
+            })
+            .sort((a,b) => a.order - b.order);
+
+          if (partialItems.length > 0) {
+            seriesNetInfo[series] = {
+              partial: true,
+              partialItems,
+              finalVal: lastVal,
+              firstVal
+            };
+          }
+        }
+      });
+    }
+
     let totalAmount = 0;
-    const applyEntries  = Object.entries(s.selections || {}).filter(([,v]) => v !== "취소" && v !== "환불");
-    const cancelEntries = Object.entries(s.selections || {}).filter(([,v]) => v === "취소" || v === "환불");
+
+    // 상계된 시리즈 제외한 selections
+    const effectiveSelections = Object.fromEntries(
+      Object.entries(s.selections || {}).filter(([series]) => !seriesNetInfo[series]?.netted)
+    );
+
+    const applyEntries  = Object.entries(effectiveSelections).filter(([,v]) => v !== "취소" && v !== "환불");
+    const cancelEntries = Object.entries(effectiveSelections).filter(([,v]) => v === "취소" || v === "환불");
 
     function renderGroup(entries, groupLabel, groupColor) {
       const rows = entries.flatMap(([series, val]) => {
@@ -1961,6 +2027,58 @@ async function loadChanges() {
           const subs = [s.subject1, s.subject2].filter(v => v && v.includes("Ⅱ"));
           if (subs.length) sciSubjects = ` (${subs.join(", ")})`;
         }
+        const isSciSeries = series === "CRUX 과학Ⅰ" || series === "CRUX 과학Ⅱ" || series === "CIRCUIT 과학Ⅰ";
+        const netInfo = seriesNetInfo[series];
+
+        // 케이스 2: 부분 처리 (차이 회차만)
+        if (netInfo?.partial) {
+          const { partialItems } = netInfo;
+          const isPartialCancel = isCancel;
+
+          // 월별 그룹핑
+          const partialMonthly = {};
+          partialItems.forEach(item => {
+            const ym = item.deliveryDate.slice(0,7);
+            if (!partialMonthly[ym]) partialMonthly[ym] = [];
+            partialMonthly[ym].push(item);
+          });
+
+          const firstPartialRound = getFirstRound(partialItems[0].name);
+          const lastPartialRound  = getFirstRound(partialItems[partialItems.length-1].name);
+          const roundLabel = partialItems.length === 1
+            ? `${firstPartialRound}만`
+            : `${firstPartialRound}~${lastPartialRound}만`;
+
+          const seriesHeader = `
+            <div style="display:flex;align-items:center;gap:5px;font-size:13px;padding:4px 0 2px;">
+              <span style="color:#333;font-weight:600;">${dispNames}</span>
+              <span style="color:#f9a825;font-size:12px;">${roundLabel}</span>
+              ${sciSubjects ? `<span style="color:#888;font-size:12px;">${sciSubjects}</span>` : ""}
+              <span style="color:#f9a825;font-size:12px;font-weight:700;">*</span>
+            </div>`;
+
+          const monthRows = Object.entries(partialMonthly).sort(([a],[b]) => a.localeCompare(b)).map(([ym, items]) => {
+            const mm    = ym.slice(5,7);
+            const mLabel = monthNames[mm] || ym;
+            const count  = items.length;
+            const unitContentPrice = items[0] ? getContentPrice(items[0].name, priceMap) : 0;
+            const amount = unitContentPrice * count * sciMult;
+            const multStr = isSciSeries ? `×${sciMult}과목` : "";
+            const amountStr = unitContentPrice
+              ? `<span style="color:${groupColor};font-size:12px;font-weight:600;">${isPartialCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${unitContentPrice.toLocaleString()}원${multStr})</span>`
+              : "";
+            const isVisible = visibleMonths.has(ym);
+            totalAmount += isVisible ? (isPartialCancel ? -amount : amount) : 0;
+            return `<div class="month-row" data-month="${ym}" data-amount="${isPartialCancel?-amount:amount}" style="display:${isVisible?"flex":"none"};align-items:center;gap:8px;font-size:12px;padding:2px 0 2px 8px;">
+              <span style="background:#f0f0ee;color:#666;padding:2px 9px;border-radius:10px;font-weight:600;font-size:11px;">${mLabel}</span>
+              ${amountStr}
+            </div>`;
+          }).join("");
+
+          return [seriesHeader + monthRows];
+        }
+
+        // 일반 처리
         const monthlyItems = {};
         contents
           .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > s.cutoffDate)
@@ -1973,7 +2091,6 @@ async function loadChanges() {
         if (Object.keys(monthlyItems).length === 0) return [];
 
         const firstRound = getFirstRound(Object.values(monthlyItems)[0][0].name);
-        const isSciSeries = series === "CRUX 과학Ⅰ" || series === "CRUX 과학Ⅱ" || series === "CIRCUIT 과학Ⅰ";
         const seriesHeader = `
           <div style="display:flex;align-items:center;gap:5px;font-size:13px;padding:4px 0 2px;">
             <span style="color:#333;font-weight:600;">${dispNames}</span>
@@ -2034,7 +2151,7 @@ async function loadChanges() {
               <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
             </div>
             ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:4px;">신청/취소 시점: ${submittedAt}${period !== "기준일 미설정" ? " · 기준일 " + formatDateKR(period) : ""}${s.paymentMethod ? ` · 결제: <span style="background:#e4f5f3;color:#2BADA0;padding:1px 7px;border-radius:8px;font-size:11px;">${s.paymentMethod}</span>` : ""}</div>` : ""}
-            ${(s._historyCount && s._historyCount > 1) ? `<div style="font-size:11px;color:#f9a825;font-weight:500;margin-bottom:8px;">⚠ 미처리 건 중 신청/취소 번복 이력있음 · 최신값 기준으로 표시</div>` : `<div style="margin-bottom:8px;"></div>`}
+            ${(isUnprocessed && Object.keys(seriesNetInfo).length > 0) ? `<div style="font-size:11px;color:#f9a825;font-weight:500;margin-bottom:8px;">⚠ 미처리 건 중 신청/취소 번복 이력있음 · 최신값 기준으로 표시</div>` : `<div style="margin-bottom:8px;"></div>`}
             ${changeList}
             ${totalStr}
             <div style="margin-top:8px;">
@@ -2070,6 +2187,34 @@ function searchChangeCard(val) {
 }
 
 async function toggleProcessed(docId, period, newVal) {
+  // 처리완료 → 미처리로 되돌릴 때: 같은 학생의 다른 미처리 건 확인
+  if (!newVal) {
+    const thisDoc = await db.collection("submissionHistory").doc(docId).get();
+    if (thisDoc.exists) {
+      const studentId = thisDoc.data().studentId;
+      const name      = thisDoc.data().name || "";
+      // 같은 학생의 다른 미처리 건 조회
+      const otherSnap = await db.collection("submissionHistory")
+        .where("studentId", "==", studentId)
+        .get();
+      const otherUnprocessed = otherSnap.docs.filter(d => {
+        if (d.id === docId) return false; // 자기 자신 제외
+        const data = d.data();
+        const p = data.cutoffDate || "기준일 미설정";
+        return !(data.processedByPeriod && data.processedByPeriod[p]);
+      });
+      if (otherUnprocessed.length > 0) {
+        const dates = otherUnprocessed.map(d => {
+          const p = d.data().cutoffDate;
+          return p ? formatDateKR(p) : "기준일 미설정";
+        }).join(", ");
+        alert(`${name} 학생의 ${dates} 건이 미처리 상태로
+미처리 처리 불가합니다.`);
+        return;
+      }
+    }
+  }
+
   const now = new Date().toLocaleString("ko-KR", {
     month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit"
   });
