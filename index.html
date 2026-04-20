@@ -1451,6 +1451,33 @@ async function doSubmit() {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     await db.collection("submissionHistory").add(submitData);
+
+    // 잔디 웹훅 알림
+    try {
+      const applyList  = Object.entries(touchedSelections).filter(([,v]) => v !== "취소" && v !== "환불").map(([s]) => s);
+      const cancelList = Object.entries(touchedSelections).filter(([,v]) => v === "취소" || v === "환불").map(([s]) => s);
+      const lines = [];
+      if (applyList.length)  lines.push(`[신청] ${applyList.join(", ")}`);
+      if (cancelList.length) lines.push(`[취소] ${cancelList.join(", ")}`);
+      const adminUrl = "https://knkscampusm.github.io/campusm_Contents/?admin=1";
+      const body = {
+        body: `📋 위클리팩 신청/취소`,
+        connectColor: applyList.length ? "#2BADA0" : "#e5534b",
+        connectInfo: [
+          { title: "학생", description: `${student.name} (${student.ban}반 ${student.group}그룹 · ${student.id})` },
+          { title: "변경 내역", description: lines.join("\n") || "-" },
+          { title: "➡️ 변경 처리로 이동", description: adminUrl }
+        ]
+      };
+      await fetch("https://wh.jandi.com/connect-api/webhook/21903148/fbed84b1f9f693d8f2ff0ea78931b004", {
+        method: "POST",
+        headers: { "Accept": "application/vnd.tosslab.jandi-v2+json", "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+    } catch(e) {
+      console.warn("잔디 웹훅 실패:", e);
+    }
+
     closeConfirmModal();
     toast("✓ 저장되었습니다");
     setTimeout(() => resetStudentView(), 1200);
