@@ -514,17 +514,19 @@
 <div id="loginModal" class="overlay">
   <div class="modal">
     <h2>관리자 로그인</h2>
+    <form autocomplete="off">
     <div class="field">
       <label>이름</label>
-      <input type="text" id="loginName" placeholder="이름 입력" />
+      <input type="text" id="loginName" placeholder="이름 입력" autocomplete="off" />
     </div>
     <div class="field">
       <label>비밀번호</label>
-      <input type="password" id="loginPw" placeholder="비밀번호 입력" />
+      <input type="password" id="loginPw" placeholder="비밀번호 입력" autocomplete="new-password" />
     </div>
     <div id="loginMsg" class="msg" style="margin-bottom:10px;"></div>
     <button class="btn btn-primary btn-full" onclick="adminLogin()">로그인</button>
     <button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="closeModal()">취소</button>
+    </form>
   </div>
 </div>
 
