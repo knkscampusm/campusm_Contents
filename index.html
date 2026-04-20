@@ -1862,11 +1862,10 @@ async function searchStudentStatus() {
         </div>`;
       }
 
-      const valColor = curVal === "취소" || curVal === "환불" ? "#e5534b" : "#2BADA0";
-      const valLabel = (curVal === "환불") ? "취소" : (curVal || "");
-      const valBadge = curVal
-        ? `<span style="font-size:12px;font-weight:700;color:${valColor};">[${valLabel}]</span>`
-        : `<span style="font-size:12px;color:#ccc;">[미선택]</span>`;
+      const isCancel = curVal === "취소" || curVal === "환불";
+      const valColor = isCancel ? "#e5534b" : "#2BADA0";
+      const valLabel = isCancel ? "취소" : "신청";
+      const valBadge = `<span style="font-size:12px;font-weight:700;color:${valColor};">[${valLabel}]</span>`;
 
       const histStr = hist
         ? `<span style="font-size:11px;color:#aaa;margin-left:6px;">최근: ${hist.lastRound || ""} · ${hist.updatedAt}</span>`
