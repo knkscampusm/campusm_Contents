@@ -2033,14 +2033,22 @@ async function loadChanges() {
             ? [firstCutoff, lastCutoff]
             : [lastCutoff, firstCutoff];
 
-          // earlierCutoff 이후 ~ laterCutoff 이하 회차 (차이 구간)
+          // laterCutoff 기준일 이후 첫 번째 배부일 찾기 (이 날짜부터는 포함 안 함)
+          const laterFirstItem = contents
+            .filter(item => getSeriesName(item.name) === series
+              && item.deliveryDate && item.deliveryDate > laterCutoff)
+            .sort((a,b) => a.order - b.order)[0];
+          const laterFirstDate = laterFirstItem ? laterFirstItem.deliveryDate : null;
+
+          // earlierCutoff 이후 ~ laterCutoff 기준일 첫 배부일 직전 회차 (차이 구간)
           const partialItems = contents
             .filter(item => {
               const sn = getSeriesName(item.name);
-              return sn === series
-                && item.deliveryDate
-                && item.deliveryDate > earlierCutoff
-                && item.deliveryDate <= laterCutoff;
+              if (sn !== series || !item.deliveryDate) return false;
+              if (item.deliveryDate <= earlierCutoff) return false;
+              // laterCutoff 이후 첫 배부일보다 이전인 것만
+              if (laterFirstDate && item.deliveryDate >= laterFirstDate) return false;
+              return true;
             })
             .sort((a,b) => a.order - b.order);
 
@@ -2099,9 +2107,10 @@ async function loadChanges() {
 
           const firstPartialRound = getFirstRound(partialItems[0].name);
           const lastPartialRound  = getFirstRound(partialItems[partialItems.length-1].name);
+          const partialActionLabel = isCancel ? "취소" : "신청";
           const roundLabel = partialItems.length === 1
-            ? `${firstPartialRound}만`
-            : `${firstPartialRound}~${lastPartialRound}만`;
+            ? `${firstPartialRound}만 ${partialActionLabel}`
+            : `${firstPartialRound}~${lastPartialRound}만 ${partialActionLabel}`;
 
           const seriesHeader = `
             <div style="display:flex;align-items:center;gap:5px;font-size:13px;padding:4px 0 2px;">
