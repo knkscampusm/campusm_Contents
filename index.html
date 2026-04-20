@@ -894,13 +894,18 @@ async function seedNewContents() {
 }
 seedNewContents();
 
-// URL 파라미터로 ?admin=1 이면 관리자 로그인 화면 자동 표시
+// URL에 #admin 해시 있으면 관리자 로그인 모달 자동 오픈 (이미 로그인된 경우 바로 변경처리 탭으로)
 (function() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("admin") === "1") {
-    // 관리자 패널 탭으로 이동
+  if (window.location.hash === "#admin") {
     setTimeout(() => {
-      openAdminLogin();
+      if (_currentStaff) {
+        // 이미 로그인 상태 → 관리자 패널 + 변경 처리 탭으로 바로 이동
+        document.getElementById("studentView").style.display = "none";
+        document.getElementById("adminPanel").style.display = "";
+        switchTab(2);
+      } else {
+        openAdminLogin();
+      }
     }, 500);
   }
 })();
@@ -1470,7 +1475,7 @@ async function doSubmit() {
       const lines = [];
       if (applyList.length)  lines.push(`[신청] ${applyList.join(", ")}`);
       if (cancelList.length) lines.push(`[취소] ${cancelList.join(", ")}`);
-      const adminUrl = "https://knkscampusm.github.io/campusm_Contents/";
+      const adminUrl = "https://knkscampusm.github.io/campusm_Contents/#admin";
       const body = {
         body: `📋 위클리팩 신청/취소`,
         connectColor: applyList.length ? "#2BADA0" : "#e5534b",
@@ -2920,10 +2925,7 @@ function switchTab(idx) {
 
 document.getElementById("sidInput").addEventListener("keydown", e => { if (e.key === "Enter") lookupStudent(); });
 
-// URL에 ?admin=1 파라미터 있으면 관리자 로그인 모달 자동 오픈
-if (new URLSearchParams(window.location.search).get("admin") === "1") {
-  openAdminLogin();
-}
+
 document.getElementById("loginName")?.addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("loginPw").focus(); });
 document.getElementById("loginPw").addEventListener("keydown",  e => { if (e.key === "Enter") adminLogin(); });
 document.addEventListener("keydown", e => {
