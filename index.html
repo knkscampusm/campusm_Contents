@@ -2019,14 +2019,53 @@ async function loadChanges() {
     val._seriesHistory = seriesHistoryByStudent[val.studentId] || {};
   });
 
-  // 빈 selections 제거 후 배열로 변환, updatedAt desc 정렬
-  let changed = Array.from(groupMap.values())
+  // ── 같은 학생의 미처리 건 여러 개를 하나로 합산 ──
+  const allDocs = Array.from(groupMap.values())
     .filter(s => Object.keys(s.selections).length > 0)
     .sort((a, b) => {
       const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
       const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
       return tb - ta;
     });
+
+  // 학생별로 미처리 건들을 묶음
+  const mergedMap = new Map(); // key: studentId → merged doc
+  allDocs.forEach(s => {
+    const period = s.cutoffDate || "기준일 미설정";
+    const isUnprocessed = !(s.processedByPeriod && s.processedByPeriod[period]);
+
+    if (isUnprocessed) {
+      // 미처리 건: 학생 단위로 합산
+      const mKey = s.studentId;
+      if (!mergedMap.has(mKey)) {
+        mergedMap.set(mKey, {
+          ...s,
+          selections: { ...s.selections },
+          _merged: false,
+          _mergedPeriods: [period],
+          _mergedDocIds: [s.docId],
+        });
+      } else {
+        const existing = mergedMap.get(mKey);
+        existing._merged = true;
+        existing._mergedPeriods.push(period);
+        existing._mergedDocIds.push(s.docId);
+        // 최신 메타
+        existing.updatedAt     = s.updatedAt;
+        existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
+        // selections 최신값으로 덮어쓰기
+        Object.entries(s.selections || {}).forEach(([series, val]) => {
+          existing.selections[series] = val;
+        });
+      }
+    } else {
+      // 처리완료 건: 그대로 개별 카드
+      const mKey = `${s.studentId}__processed__${s.docId}`;
+      mergedMap.set(mKey, { ...s, _merged: false, _mergedPeriods: [period], _mergedDocIds: [s.docId] });
+    }
+  });
+
+  let changed = Array.from(mergedMap.values());
 
   if (_showOnlyUnprocessed) {
     changed = changed.filter(s => {
@@ -2035,14 +2074,13 @@ async function loadChanges() {
     });
   }
 
-  // 전체에서 미처리 수 계산 (필터 상태 무관하게 항상 전체 기준)
-  const allChanged = Array.from(groupMap.values());
-  const totalCount = allChanged.length;
-  const unprocessedCount = allChanged.filter(s => {
+  // 전체에서 미처리 수 계산 (학생 단위로 합산된 기준)
+  const allMergedValues = Array.from(mergedMap.values());
+  const totalCount = allMergedValues.length;
+  const unprocessedCount = allMergedValues.filter(s => {
     const period = s.cutoffDate || "기준일 미설정";
     return !(s.processedByPeriod && s.processedByPeriod[period]);
   }).length;
-  // 카운트는 네비게이션에 표시됨
 
   if (!changed.length) {
     el.innerHTML = `<div class="empty">${_showOnlyUnprocessed ? "미처리 내역이 없습니다 🎉" : "변경 내역이 없습니다"}</div>`;
@@ -2054,9 +2092,13 @@ async function loadChanges() {
 
   const allMonths = new Set();
   changed.forEach(s => {
-    contents.forEach(item => {
-      if (item.deliveryDate && s.cutoffDate && item.deliveryDate > s.cutoffDate)
-        allMonths.add(item.deliveryDate.slice(0, 7));
+    const periods = s._mergedPeriods || [s.cutoffDate];
+    periods.forEach(p => {
+      if (!p || p === "기준일 미설정") return;
+      contents.forEach(item => {
+        if (item.deliveryDate && item.deliveryDate > p)
+          allMonths.add(item.deliveryDate.slice(0, 7));
+      });
     });
   });
   const sortedMonths = Array.from(allMonths).sort();
@@ -2220,8 +2262,12 @@ async function loadChanges() {
 
         // 일반 처리
         const monthlyItems = {};
+        // 합산 카드: 가장 이른 기준일 기준
+        const effectiveCutoff = s._mergedPeriods
+          ? s._mergedPeriods.filter(p => p !== "기준일 미설정").sort()[0] || s.cutoffDate
+          : s.cutoffDate;
         contents
-          .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > s.cutoffDate)
+          .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > effectiveCutoff)
           .sort((a,b) => a.order - b.order)
           .forEach(item => {
             const ym = item.deliveryDate.slice(0,7);
@@ -2272,14 +2318,23 @@ async function loadChanges() {
       ? `<div class="monthly-total" style="margin-top:8px;padding:6px 10px;background:#f8f8f6;border-radius:8px;font-size:13px;font-weight:700;color:${totalColor};text-align:right;">표시 합계: ${totalAmount>0?"+":""}${totalAmount.toLocaleString()}원</div>`
       : "";
 
-    const processedMap  = s.processedByPeriod    || {};
-    const processed     = processedMap[period]   || false;
-    const processedAt   = (s.processedAtByPeriod   && s.processedAtByPeriod[period])   || null;
-    const unprocessedAt = (s.unprocessedAtByPeriod && s.unprocessedAtByPeriod[period]) || null;
-    const memo          = (s.memoByPeriod && s.memoByPeriod[period]) || "";
-    const submittedAt   = s.updatedAt?.toDate
+    // 합산된 카드: 모든 연관 docId/period 기준으로 처리 상태 판단
+    const mergedDocIds   = s._mergedDocIds   || [s.docId];
+    const mergedPeriods  = s._mergedPeriods  || [s.cutoffDate || "기준일 미설정"];
+    // 합산 카드는 모든 연관 건이 처리완료일 때만 처리완료로 표시
+    const allPeriodProcessed = mergedPeriods.every(p => s.processedByPeriod && s.processedByPeriod[p]);
+    const processed = allPeriodProcessed;
+    const processedAt   = processed ? (mergedPeriods.map(p => s.processedAtByPeriod?.[p]).filter(Boolean).join(", ")) : null;
+    const unprocessedAt = !processed ? (mergedPeriods.map(p => s.unprocessedAtByPeriod?.[p]).filter(Boolean).join(", ")) : null;
+    const memo = mergedPeriods.map(p => s.memoByPeriod?.[p]).filter(Boolean).join(" / ") || "";
+    const submittedAt = s.updatedAt?.toDate
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "";
+    // 기준일 표시: 여러 개면 모두 표시
+    const periodLabel = mergedPeriods.filter(p => p !== "기준일 미설정").map(p => formatDateKR(p)).join(", ");
+    // toggleProcessed용: 합산 건은 모든 docId/period 처리
+    const toggleDocIds   = JSON.stringify(mergedDocIds).replace(/"/g, "&quot;");
+    const togglePeriods  = JSON.stringify(mergedPeriods).replace(/"/g, "&quot;");
 
     return `
       <div class="student-card" data-name="${s.name}" data-sid="${s.studentId}" style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
@@ -2290,19 +2345,19 @@ async function loadChanges() {
               <span style="font-size:12px;color:#888;">${s.ban}반 · ${s.group}그룹</span>
               <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
             </div>
-            ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:4px;">신청/취소 시점: ${submittedAt}${period !== "기준일 미설정" ? " · 기준일 " + formatDateKR(period) : ""}${s.paymentMethod ? ` · 결제: <span style="background:#e4f5f3;color:#2BADA0;padding:1px 7px;border-radius:8px;font-size:11px;">${s.paymentMethod}</span>` : ""}</div>` : ""}
+            ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:4px;">신청/취소 시점: ${submittedAt}${periodLabel ? " · 기준일 " + periodLabel : ""}${s.paymentMethod ? ` · 결제: <span style="background:#e4f5f3;color:#2BADA0;padding:1px 7px;border-radius:8px;font-size:11px;">${s.paymentMethod}</span>` : ""}</div>` : ""}
             ${(isUnprocessed && Object.keys(seriesNetInfo).length > 0) ? `<div style="font-size:11px;color:#f9a825;font-weight:500;margin-bottom:8px;">⚠ 미처리 건 중 신청/취소 번복 이력있음 · 최신값 기준으로 표시</div>` : `<div style="margin-bottom:8px;"></div>`}
             ${changeList}
             ${totalStr}
             <div style="margin-top:8px;">
               <input type="text" placeholder="비고 입력 후 Enter" value="${memo}"
                 style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
-                onkeydown="if(event.key==='Enter'){saveMemo('${s.docId}','${period}',this.value);this.blur();}"
-                onblur="saveMemo('${s.docId}','${period}',this.value)" />
+                onkeydown="if(event.key==='Enter'){saveMemoMerged('${toggleDocIds}','${togglePeriods}',this.value);this.blur();}"
+                onblur="saveMemoMerged('${toggleDocIds}','${togglePeriods}',this.value)" />
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
-            <button onclick="toggleProcessed('${s.docId}','${period}',${!processed})"
+            <button onclick="toggleProcessedMerged('${toggleDocIds}','${togglePeriods}',${!processed})"
               style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;
                 background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
               ${processed ? '처리완료 ✓' : '미처리'}
@@ -2324,6 +2379,61 @@ function searchChangeCard(val) {
     const sid = c.dataset.sid || "";
     c.style.display = (!q || sid.includes(q)) ? "" : "none";
   });
+}
+
+async function toggleProcessedMerged(docIdsJson, periodsJson, newVal) {
+  let docIds, periods;
+  try {
+    docIds  = JSON.parse(docIdsJson.replace(/&quot;/g, '"'));
+    periods = JSON.parse(periodsJson.replace(/&quot;/g, '"'));
+  } catch(e) {
+    docIds  = [docIdsJson];
+    periods = [periodsJson];
+  }
+
+  // 미처리로 되돌릴 때: 다른 미처리 건 체크 (합산 건 자체 제외)
+  if (!newVal && docIds.length > 0) {
+    const thisDoc = await db.collection("submissionHistory").doc(docIds[0]).get();
+    if (thisDoc.exists) {
+      const studentId = thisDoc.data().studentId;
+      const name      = thisDoc.data().name || "";
+      const otherSnap = await db.collection("submissionHistory").where("studentId","==",studentId).get();
+      const otherUnprocessed = otherSnap.docs.filter(d => {
+        if (docIds.includes(d.id)) return false;
+        const data = d.data();
+        const p = data.cutoffDate || "기준일 미설정";
+        return !(data.processedByPeriod && data.processedByPeriod[p]);
+      });
+      if (otherUnprocessed.length > 0) {
+        const dates = otherUnprocessed.map(d => {
+          const p = d.data().cutoffDate;
+          return p ? formatDateKR(p) : "기준일 미설정";
+        }).join(", ");
+        alert(`${name} 학생의 ${dates} 건이 미처리 상태로
+미처리 처리 불가합니다.`);
+        return;
+      }
+    }
+  }
+
+  // 모든 관련 doc/period 처리
+  for (let i = 0; i < docIds.length; i++) {
+    await toggleProcessed(docIds[i], periods[i], newVal);
+  }
+}
+
+async function saveMemoMerged(docIdsJson, periodsJson, memo) {
+  let docIds, periods;
+  try {
+    docIds  = JSON.parse(docIdsJson.replace(/&quot;/g, '"'));
+    periods = JSON.parse(periodsJson.replace(/&quot;/g, '"'));
+  } catch(e) {
+    docIds  = [docIdsJson];
+    periods = [periodsJson];
+  }
+  for (let i = 0; i < docIds.length; i++) {
+    await saveMemo(docIds[i], periods[i], memo);
+  }
 }
 
 async function toggleProcessed(docId, period, newVal) {
