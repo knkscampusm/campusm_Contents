@@ -2572,7 +2572,14 @@ async function loadChanges() {
     const processed = allPeriodProcessed;
     const processedAt   = processed ? (mergedPeriods.map(p => s.processedAtByPeriod?.[p]).filter(Boolean).join(", ")) : null;
     const unprocessedAt = !processed ? (mergedPeriods.map(p => s.unprocessedAtByPeriod?.[p]).filter(Boolean).join(", ")) : null;
-    const memo = mergedPeriods.map(p => s.memoByPeriod?.[p]).filter(Boolean).join(" / ") || "";
+    // 비고에서 메타 정보 제거해서 표시용 순수 텍스트 추출
+    function stripMemoMeta(m) {
+      if (!m) return "";
+      return m.replace(/\s*\([^)]+·[^)]+\)\s*$/, "").replace(/\s*\([^)]+\)\s*$/, "").trim();
+    }
+    const memoRaw  = mergedPeriods.map(p => s.memoByPeriod?.[p]).filter(Boolean).join(" / ") || "";
+    const memo     = stripMemoMeta(memoRaw);
+    const memoFull = memoRaw; // 전체(메타 포함) - 툴팁용
     const submittedAt = s.updatedAt?.toDate
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "";
@@ -2598,10 +2605,13 @@ async function loadChanges() {
             ${changeList}
             ${totalStr}
             <div style="margin-top:8px;">
-              <input type="text" placeholder="비고 입력 후 Enter" value="${memo}"
-                style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
-                onkeydown="if(event.key==='Enter'){saveMemoMerged('${toggleDocIds}','${togglePeriods}',this.value);this.blur();}"
-                onblur="saveMemoMerged('${toggleDocIds}','${togglePeriods}',this.value)" />
+              <div>
+                <input type="text" placeholder="비고 입력 후 Enter" value="${memo}"
+                  style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
+                  onkeydown="if(event.key==='Enter'){saveMemoMerged('${toggleDocIds}','${togglePeriods}',this.value);this.blur();}"
+                  onblur="saveMemoMerged('${toggleDocIds}','${togglePeriods}',this.value)" />
+                ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;padding-left:4px;">${memoFull.replace(memo,'').trim()}</div>` : ""}
+              </div>
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
@@ -2733,8 +2743,11 @@ async function toggleProcessed(docId, period, newVal) {
 
 async function saveMemo(docId, period, memo) {
   try {
+    const now = new Date().toLocaleString("ko-KR", {month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+    const staffLabel = _currentStaff ? ` (${_currentStaff} · ${now})` : ` (${now})`;
+    const memoWithMeta = memo ? `${memo}${staffLabel}` : "";
     await db.collection("submissionHistory").doc(docId).update({
-      [`memoByPeriod.${period}`]: memo
+      [`memoByPeriod.${period}`]: memoWithMeta
     });
     toast("비고 저장됨");
   } catch(e) {
