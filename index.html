@@ -1613,6 +1613,8 @@ async function loadAdminContents() {
 
   const catColors = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
 
+  const todayMonthKey = new Date().toISOString().slice(0, 7);
+
   el.innerHTML = Object.keys(monthGroups).sort().map(mKey => {
     const mLabel = mKey === "9999-99" ? "날짜 미정" : (monthNames[mKey.slice(5,7)] || mKey.slice(5,7)+"월");
 
@@ -1635,7 +1637,7 @@ async function loadAdminContents() {
             <input type="date" value="${item.deliveryDate || ''}"
               style="padding:3px 6px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;outline:none;width:128px;flex-shrink:0;"
               onchange="updateDeliveryDate('${item.id}', this.value)" />
-            <button onclick="deleteContent('${item.id}')" style="padding:3px 7px;font-size:14px;font-weight:700;color:#aaa;background:none;border:none;cursor:pointer;flex-shrink:0;line-height:1;" title="삭제">✕</button>
+
           </div>`;
       }).join("");
 
@@ -1652,15 +1654,34 @@ async function loadAdminContents() {
         </div>`;
     }).join("");
 
+    const isCurrentMonth = mKey === todayMonthKey;
+    const totalCount = Object.values(monthGroups[mKey]).flat().length;
     return `
-      <div style="margin-bottom:1.5rem;">
-        <div style="font-size:14px;font-weight:800;color:#1a1a1a;padding:6px 0 8px;border-bottom:2px solid #1a1a1a;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
-          <span>📅 ${mLabel}</span>
-          <span style="font-size:12px;font-weight:500;color:#aaa;">${Object.values(monthGroups[mKey]).flat().length}개</span>
+      <div style="margin-bottom:1rem;">
+        <div onclick="toggleMonthSection('month_${mKey}')"
+          style="font-size:14px;font-weight:800;color:#1a1a1a;padding:8px 10px;border-radius:10px;margin-bottom:6px;
+                 display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+                 background:${isCurrentMonth ? '#e4f5f3' : '#f4f4f2'};">
+          <span>📅 ${mLabel}${isCurrentMonth ? ' <span style=\"font-size:11px;font-weight:500;color:#2BADA0;\">현재월</span>' : ''}</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:12px;font-weight:500;color:#aaa;">${totalCount}개</span>
+            <span id="arrow_month_${mKey}" style="font-size:13px;color:#aaa;">${isCurrentMonth ? '▲' : '▼'}</span>
+          </div>
         </div>
-        ${weekHtml}
+        <div id="month_${mKey}" style="display:${isCurrentMonth ? '' : 'none'};">
+          ${weekHtml}
+        </div>
       </div>`;
   }).join("");
+}
+
+function toggleMonthSection(id) {
+  const el = document.getElementById(id);
+  const arrowEl = document.getElementById('arrow_' + id);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : '';
+  if (arrowEl) arrowEl.textContent = isOpen ? '▼' : '▲';
 }
 
 async function updateDeliveryDate(id, date) {
