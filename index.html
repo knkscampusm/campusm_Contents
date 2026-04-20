@@ -438,7 +438,7 @@
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.875rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;flex-wrap:wrap;">
         <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0;"></div>
         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
-          <input type="text" id="changeSearchInput" placeholder="학번 검색" maxlength="20"
+          <input type="text" id="changeSearchInput" placeholder="학번 검색" maxlength="20" autocomplete="off"
             style="padding:4px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fafafa;outline:none;width:110px;"
             oninput="searchChangeCard(this.value)" />
         </div>
@@ -1977,33 +1977,32 @@ async function loadChanges() {
     return item ? item.order : Infinity;
   }
 
-  // key: "studentId__cutoffDate"
+  // key: "studentId__cutoffDate" (기준일별로 분리)
+  // 단, _seriesHistory는 학생 단위로 별도 추적
+  const seriesHistoryByStudent = {}; // studentId → { series: [...] }
   const groupMap = new Map();
   rawDocs.forEach(s => {
     const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
+    // 학생별 시리즈 이력 누적
+    if (!seriesHistoryByStudent[s.studentId]) seriesHistoryByStudent[s.studentId] = {};
+    const studentHist = seriesHistoryByStudent[s.studentId];
+    Object.entries(s.selections || {}).forEach(([series, val]) => {
+      const firstOrder = getFirstOrderByCutoff(series, s.cutoffDate);
+      if (!studentHist[series]) studentHist[series] = [];
+      const hist = studentHist[series];
+      const lastHist = hist[hist.length - 1];
+      if (!lastHist || lastHist.val !== val || lastHist.firstOrder !== firstOrder) {
+        hist.push({ val, cutoffDate: s.cutoffDate, firstOrder });
+      }
+    });
     if (!groupMap.has(key)) {
-      // 첫 등장: 시리즈별 이력 추적 초기화 (첫 배부 회차 order 포함)
-      const seriesHistory = {};
-      Object.entries(s.selections || {}).forEach(([series, val]) => {
-        const firstOrder = getFirstOrderByCutoff(series, s.cutoffDate);
-        seriesHistory[series] = [{ val, cutoffDate: s.cutoffDate, firstOrder }];
-      });
-      groupMap.set(key, { ...s, selections: { ...s.selections }, _historyCount: 1, _seriesHistory: seriesHistory });
+      // _seriesHistory는 학생 전체 이력(seriesHistoryByStudent)에서 참조
+      groupMap.set(key, { ...s, selections: { ...s.selections }, _historyCount: 1 });
     } else {
       const existing = groupMap.get(key);
       existing._historyCount = (existing._historyCount || 1) + 1;
-      // 선택값 병합: 최신 값으로 덮어쓰기 + 이력 누적
       Object.entries(s.selections || {}).forEach(([series, val]) => {
-        const prevVal = existing.selections[series];
         existing.selections[series] = val;
-        if (!existing._seriesHistory[series]) existing._seriesHistory[series] = [];
-        const hist = existing._seriesHistory[series];
-        const lastHist = hist[hist.length - 1];
-        const firstOrder = getFirstOrderByCutoff(series, s.cutoffDate);
-        // 이전값과 다를 때만 이력 추가
-        if (!lastHist || lastHist.val !== val || lastHist.firstOrder !== firstOrder) {
-          hist.push({ val, cutoffDate: s.cutoffDate, firstOrder });
-        }
       });
       existing.docId         = s.docId;
       existing.updatedAt     = s.updatedAt;
@@ -2013,6 +2012,11 @@ async function loadChanges() {
       existing.memoByPeriod         = s.memoByPeriod         || existing.memoByPeriod;
       existing.paymentMethod        = s.paymentMethod        || existing.paymentMethod;
     }
+  });
+
+  // groupMap 각 항목에 학생 전체 시리즈 이력 주입
+  groupMap.forEach((val, key) => {
+    val._seriesHistory = seriesHistoryByStudent[val.studentId] || {};
   });
 
   // 빈 selections 제거 후 배열로 변환, updatedAt desc 정렬
