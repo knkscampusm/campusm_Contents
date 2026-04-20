@@ -1829,9 +1829,14 @@ async function searchStudentStatus() {
     if (!seriesCatMap[s]) seriesCatMap[s] = item.category || "기타";
   });
 
+  // 전체 콘텐츠 시리즈 기준으로 목록 구성 (신청 포함)
   const catGroups = {};
-  const allSeries = new Set([...Object.keys(subs), ...Object.keys(historyMap)]);
-  allSeries.forEach(series => {
+  Object.entries(seriesCatMap).forEach(([series, cat]) => {
+    if (!catGroups[cat]) catGroups[cat] = [];
+    if (!catGroups[cat].includes(series)) catGroups[cat].push(series);
+  });
+  // 이력에만 있는 시리즈도 추가
+  new Set([...Object.keys(subs), ...Object.keys(historyMap)]).forEach(series => {
     const cat = seriesCatMap[series] || "기타";
     if (!catGroups[cat]) catGroups[cat] = [];
     if (!catGroups[cat].includes(series)) catGroups[cat].push(series);
