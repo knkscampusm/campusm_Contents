@@ -918,6 +918,8 @@ function closeModal() { document.getElementById("loginModal").classList.remove("
 function openAdminLogin() { document.getElementById("loginModal").classList.add("open"); }
 
 async function lookupStudent() {
+  // 키보드 숨기기
+  document.getElementById("sidInput")?.blur();
   const sid = document.getElementById("sidInput").value.trim();
   if (!sid) { setMsg("lookupMsg", "학번을 입력해주세요.", "error"); return; }
   const btn = document.getElementById("lookupBtn");
@@ -1772,6 +1774,8 @@ function toggleAllCheck() {
 async function searchStudentStatus() {
   const sid = document.getElementById("adminSidInput").value.trim();
   const el  = document.getElementById("studentStatusResult");
+  // 키보드 숨기기
+  document.getElementById("adminSidInput")?.blur();
   if (!sid) { el.style.display = "none"; return; }
   el.style.display = "";
   el.innerHTML = '<div class="empty">검색 중...</div>';
