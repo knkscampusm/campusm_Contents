@@ -1639,31 +1639,15 @@ async function loadSubmissions() {
   const cutoff   = settingDoc.exists ? settingDoc.data().cutoffDate : null;
   const contents = cols;
 
-  // ── 신청/취소 전체 이력 테이블 ──
-  // 학생+기준일 단위 합산
-  const rawDocs = histSnap.docs
+  // ── 신청/취소 전체 이력 테이블 ── (합산 없이 원본 이력 그대로)
+  const histRows = histSnap.docs
     .map(d => ({ docId: d.id, ...d.data() }))
     .filter(s => s.selections && Object.keys(s.selections).length > 0)
     .sort((a, b) => {
       const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
       const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
-      return ta - tb;
+      return tb - ta; // 최신순
     });
-
-  const groupMap = new Map();
-  rawDocs.forEach(s => {
-    const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
-    if (!groupMap.has(key)) {
-      groupMap.set(key, { ...s, selections: { ...s.selections } });
-    } else {
-      const existing = groupMap.get(key);
-      Object.entries(s.selections || {}).forEach(([series, val]) => {
-        existing.selections[series] = val;
-      });
-      existing.updatedAt     = s.updatedAt;
-      existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
-    }
-  });
 
   // 전체 시리즈 목록
   const allSeries = [];
@@ -1673,21 +1657,19 @@ async function loadSubmissions() {
     if (!seenSeries.has(s)) { seenSeries.add(s); allSeries.push(s); }
   });
 
-  // 시리즈별 첫 회차 맵
+  // 시리즈별 기준일별 첫 회차 맵 (기준일 → 시리즈 → 회차)
   const seriesRoundMap = {};
-  contents.sort((a,b) => a.order - b.order).forEach(item => {
-    const s = getSeriesName(item.name);
-    if (!seriesRoundMap[s] && cutoff && item.deliveryDate && item.deliveryDate > cutoff) {
-      seriesRoundMap[s] = getFirstRound(item.name) + "부터";
-    }
-  });
-
-  const histRows = Array.from(groupMap.values())
-    .sort((a, b) => {
-      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
-      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
-      return tb - ta;
+  histRows.forEach(row => {
+    const rowCutoff = row.cutoffDate;
+    if (!rowCutoff) return;
+    if (!seriesRoundMap[rowCutoff]) seriesRoundMap[rowCutoff] = {};
+    contents.sort((a,b) => a.order - b.order).forEach(item => {
+      const s = getSeriesName(item.name);
+      if (!seriesRoundMap[rowCutoff][s] && item.deliveryDate && item.deliveryDate > rowCutoff) {
+        seriesRoundMap[rowCutoff][s] = getFirstRound(item.name) + "부터";
+      }
     });
+  });
 
   const hHead = document.getElementById("historyTblHead");
   const hBody = document.getElementById("historyTblBody");
@@ -1706,6 +1688,7 @@ async function loadSubmissions() {
     const submittedAt = s.updatedAt?.toDate
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "-";
+    const roundMapForRow = (s.cutoffDate && seriesRoundMap[s.cutoffDate]) || {};
     return `<tr>
       <td style="color:#ED0081;font-size:12px;white-space:nowrap;">${submittedAt}</td>
       <td>${s.studentId}</td><td>${s.name}</td><td>${s.ban}</td><td>${s.group}</td>
@@ -1715,7 +1698,7 @@ async function loadSubmissions() {
         if (!val) return `<td style="color:#ddd;">-</td>`;
         const isCancel = val === "취소" || val === "환불";
         const label = isCancel ? "취소" : "신청";
-        const round = seriesRoundMap[series] || "";
+        const round = roundMapForRow[series] || "";
         const cls   = isCancel ? "tag-r" : "tag-a";
         return `<td class="${cls}" style="font-size:12px;">${label}${round ? "<br><span style='font-size:10px;font-weight:400;color:#aaa;'>"+round+"</span>" : ""}</td>`;
       }).join("")}
