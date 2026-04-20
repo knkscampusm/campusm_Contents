@@ -308,7 +308,7 @@
   <div class="card">
     <div style="font-size:13px;color:#888;font-weight:500;margin-bottom:8px;">학번 입력</div>
     <div class="row">
-      <input type="text" id="sidInput" placeholder="학번을 입력하세요" maxlength="20" inputmode="numeric" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" style="flex:1;" />
+      <input type="password" id="sidInput" placeholder="학번을 입력하세요" maxlength="20" autocomplete="new-password" onfocus="this.type='text';this.inputMode='numeric';" style="flex:1;" />
       <button class="btn btn-primary" id="lookupBtn" onclick="lookupStudent()" style="padding:13px 22px;">조회</button>
     </div>
     <div id="inputGuide" style="font-size:13px;color:#2BADA0;text-align:center;margin-top:10px;font-weight:500;">학생증을 태깅해주세요</div>
@@ -391,7 +391,7 @@
     <div class="card">
       <div style="font-size:13px;color:#888;font-weight:500;margin-bottom:8px;">학번으로 검색</div>
       <div class="row">
-        <input type="text" id="adminSidInput" placeholder="학번 입력" maxlength="20" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')"
+        <input type="password" id="adminSidInput" placeholder="학번 입력" maxlength="20" autocomplete="new-password" onfocus="this.type='text';this.inputMode='numeric';"
           style="flex:1;" onkeydown="if(event.key==='Enter') searchStudentStatus()" />
         <button class="btn btn-primary btn-sm" onclick="searchStudentStatus()" style="padding:10px 18px;">검색</button>
         <button class="btn btn-outline btn-sm" onclick="clearHistorySearch()" style="padding:10px 14px;">초기화</button>
@@ -1985,15 +1985,25 @@ async function loadChanges() {
   // 학생별 마지막 처리완료 시점 추적 (처리완료 후 이력 리셋용)
   const lastProcessedAtByStudent = {}; // studentId → updatedAt timestamp
 
+  // 학생별 세그먼트 카운터 (처리완료될 때마다 증가 → 새 key 생성)
+  const studentSegmentCounter = {}; // studentId → 현재 세그먼트 번호
+
   const groupMap = new Map();
   rawDocs.forEach(s => {
-    const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
     const period = s.cutoffDate || "기준일 미설정";
     const isProcessed = !!(s.processedByPeriod && s.processedByPeriod[period]);
 
-    // 처리완료된 건이면 → 해당 학생의 시리즈 이력 리셋
+    // 현재 세그먼트 번호
+    if (studentSegmentCounter[s.studentId] === undefined) studentSegmentCounter[s.studentId] = 0;
+    const segNum = studentSegmentCounter[s.studentId];
+
+    // key: 학생+기준일+세그먼트번호
+    const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}__seg${segNum}`;
+
+    // 처리완료된 건이면 → 세그먼트 증가 + 이력 리셋
     if (isProcessed) {
       seriesHistoryByStudentSegment[s.studentId] = {};
+      studentSegmentCounter[s.studentId] = segNum + 1;
     }
 
     // 현재 세그먼트에 이력 누적 (미처리 건만)
