@@ -606,6 +606,10 @@ const DEFAULT_PRICES = {
   "CRUX 과학Ⅰ":        7000,
   "CRUX 과학Ⅱ":        7000,
   "CIRCUIT 과학Ⅰ":     7500,
+  "이감":               22000,
+  "강대모의고사K 수학": 14000,
+  "강대모의고사K 영어": 13000,
+  "강대모의고사X 수학": 0,
 };
 
 const INITIAL_CONTENTS = [
@@ -724,6 +728,71 @@ const INITIAL_CONTENTS = [
   { id: "sc_ci_15_16",name: "CIRCUIT 과학 15·16회",category: "과학탐구", order: 113, deliveryDate: "2026-05-28" },
   { id: "sc_ci_17_18",name: "CIRCUIT 과학 17·18회",category: "과학탐구", order: 114, deliveryDate: "2026-06-05" },
   { id: "sc_ci_19_20",name: "CIRCUIT 과학 19·20회",category: "과학탐구", order: 115, deliveryDate: "2026-06-11" },
+  // ── 7월~ 추가 콘텐츠 ──
+  { id: "ko_ff_7", name: "FF 7회", category: "국어", order: 116, deliveryDate: "2026-07-02" },
+  { id: "ko_ff_8", name: "FF 8회", category: "국어", order: 117, deliveryDate: "2026-07-09" },
+  { id: "ko_gmk_5", name: "강대모의고사K 국어 5회", category: "국어", order: 118, deliveryDate: "2026-07-16" },
+  { id: "ko_gmk_6", name: "강대모의고사K 국어 6회", category: "국어", order: 119, deliveryDate: "2026-07-30" },
+  { id: "ko_gmk_7", name: "강대모의고사K 국어 7회", category: "국어", order: 120, deliveryDate: "2026-08-20" },
+  { id: "ko_gmk_8", name: "강대모의고사K 국어 8회", category: "국어", order: 121, deliveryDate: "2026-09-03" },
+  { id: "ko_gmk_9", name: "강대모의고사K 국어 9회", category: "국어", order: 122, deliveryDate: "2026-09-17" },
+  { id: "ko_gmk_10", name: "강대모의고사K 국어 10회", category: "국어", order: 123, deliveryDate: "2026-10-01" },
+  { id: "ko_gmk_11", name: "강대모의고사K 국어 11회", category: "국어", order: 124, deliveryDate: "2026-10-15" },
+  { id: "ko_gmk_12", name: "강대모의고사K 국어 12회", category: "국어", order: 125, deliveryDate: "2026-10-22" },
+  { id: "ko_gmk_13", name: "강대모의고사K 국어 13회", category: "국어", order: 126, deliveryDate: "2026-10-29" },
+  { id: "ko_gmk_14", name: "강대모의고사K 국어 14회", category: "국어", order: 127, deliveryDate: "2026-11-05" },
+  { id: "ko_igam_f1_1", name: "이감 파이널Ⅰ 1회", category: "국어", order: 128, deliveryDate: "2026-07-16" },
+  { id: "ko_igam_f1_2", name: "이감 파이널Ⅰ 2회", category: "국어", order: 129, deliveryDate: "2026-07-23" },
+  { id: "ko_igam_f1_3", name: "이감 파이널Ⅰ 3회", category: "국어", order: 130, deliveryDate: "2026-07-30" },
+  { id: "ko_igam_f1_4", name: "이감 파이널Ⅰ 4회", category: "국어", order: 131, deliveryDate: "2026-08-06" },
+  { id: "ko_igam_f1_5", name: "이감 파이널Ⅰ 5회", category: "국어", order: 132, deliveryDate: "2026-08-13" },
+  { id: "ko_igam_f1_6", name: "이감 파이널Ⅰ 6회", category: "국어", order: 133, deliveryDate: "2026-08-20" },
+  { id: "ko_igam_f1_7", name: "이감 파이널Ⅰ 7회", category: "국어", order: 134, deliveryDate: "2026-08-27" },
+  { id: "ko_igam_f1_8", name: "이감 파이널Ⅰ 8회", category: "국어", order: 135, deliveryDate: "2026-09-03" },
+  { id: "ko_igam_f2_1", name: "이감 파이널Ⅱ 1회", category: "국어", order: 136, deliveryDate: "2026-09-10" },
+  { id: "ko_igam_f2_2", name: "이감 파이널Ⅱ 2회", category: "국어", order: 137, deliveryDate: "2026-09-17" },
+  { id: "ko_igam_f2_3", name: "이감 파이널Ⅱ 3회", category: "국어", order: 138, deliveryDate: "2026-09-24" },
+  { id: "ko_igam_f2_4", name: "이감 파이널Ⅱ 4회", category: "국어", order: 139, deliveryDate: "2026-10-01" },
+  { id: "ko_igam_f2_5", name: "이감 파이널Ⅱ 5회", category: "국어", order: 140, deliveryDate: "2026-10-08" },
+  { id: "ko_igam_f2_6", name: "이감 파이널Ⅱ 6회", category: "국어", order: 141, deliveryDate: "2026-10-15" },
+  { id: "ko_igam_f2_7", name: "이감 파이널Ⅱ 7회", category: "국어", order: 142, deliveryDate: "2026-10-22" },
+  { id: "ko_igam_f2_8", name: "이감 파이널Ⅱ 8회", category: "국어", order: 143, deliveryDate: "2026-10-29" },
+  { id: "ko_igam_f2_9", name: "이감 파이널Ⅱ 9회", category: "국어", order: 144, deliveryDate: "2026-11-05" },
+  { id: "ko_igam_f2_10", name: "이감 파이널Ⅱ 10회", category: "국어", order: 145, deliveryDate: "2026-11-06" },
+  { id: "ma_gmk_1_2", name: "강대모의고사K 수학 1·2회", category: "수학", order: 146, deliveryDate: "2026-07-09" },
+  { id: "ma_gmk_3_4", name: "강대모의고사K 수학 3·4회", category: "수학", order: 147, deliveryDate: "2026-07-16" },
+  { id: "ma_gmk_5_6", name: "강대모의고사K 수학 5·6회", category: "수학", order: 148, deliveryDate: "2026-07-23" },
+  { id: "ma_gmk_7_8", name: "강대모의고사K 수학 7·8회", category: "수학", order: 149, deliveryDate: "2026-07-30" },
+  { id: "ma_gmk_9_10", name: "강대모의고사K 수학 9·10회", category: "수학", order: 150, deliveryDate: "2026-08-06" },
+  { id: "ma_gmk_11_12", name: "강대모의고사K 수학 11·12회", category: "수학", order: 151, deliveryDate: "2026-08-13" },
+  { id: "ma_gmk_13_14", name: "강대모의고사K 수학 13·14회", category: "수학", order: 152, deliveryDate: "2026-08-20" },
+  { id: "ma_gmk_15_16", name: "강대모의고사K 수학 15·16회", category: "수학", order: 153, deliveryDate: "2026-08-27" },
+  { id: "ma_gmk_17_18", name: "강대모의고사K 수학 17·18회", category: "수학", order: 154, deliveryDate: "2026-09-03" },
+  { id: "ma_gmk_19_20", name: "강대모의고사K 수학 19·20회", category: "수학", order: 155, deliveryDate: "2026-09-10" },
+  { id: "ma_gmk_21_22", name: "강대모의고사K 수학 21·22회", category: "수학", order: 156, deliveryDate: "2026-09-17" },
+  { id: "ma_gmk_23_24", name: "강대모의고사K 수학 23·24회", category: "수학", order: 157, deliveryDate: "2026-10-01" },
+  { id: "ma_gmk_25_26", name: "강대모의고사K 수학 25·26회", category: "수학", order: 158, deliveryDate: "2026-10-08" },
+  { id: "ma_gmk_27_28", name: "강대모의고사K 수학 27·28회", category: "수학", order: 159, deliveryDate: "2026-10-15" },
+  { id: "ma_gmk_29_30", name: "강대모의고사K 수학 29·30회", category: "수학", order: 160, deliveryDate: "2026-10-22" },
+  { id: "ma_gmk_31_32", name: "강대모의고사K 수학 31·32회", category: "수학", order: 161, deliveryDate: "2026-10-29" },
+  { id: "ma_gmk_33_34", name: "강대모의고사K 수학 33·34회", category: "수학", order: 162, deliveryDate: "2026-11-05" },
+  { id: "en_gmk_1", name: "강대모의고사K 영어 1회", category: "영어", order: 163, deliveryDate: "2026-07-09" },
+  { id: "en_gmk_2", name: "강대모의고사K 영어 2회", category: "영어", order: 164, deliveryDate: "2026-07-16" },
+  { id: "en_gmk_3", name: "강대모의고사K 영어 3회", category: "영어", order: 165, deliveryDate: "2026-07-23" },
+  { id: "en_gmk_4", name: "강대모의고사K 영어 4회", category: "영어", order: 166, deliveryDate: "2026-07-30" },
+  { id: "en_gmk_5", name: "강대모의고사K 영어 5회", category: "영어", order: 167, deliveryDate: "2026-08-06" },
+  { id: "en_gmk_6", name: "강대모의고사K 영어 6회", category: "영어", order: 168, deliveryDate: "2026-08-13" },
+  { id: "en_gmk_7", name: "강대모의고사K 영어 7회", category: "영어", order: 169, deliveryDate: "2026-08-20" },
+  { id: "en_gmk_8", name: "강대모의고사K 영어 8회", category: "영어", order: 170, deliveryDate: "2026-08-27" },
+  { id: "en_gmk_9", name: "강대모의고사K 영어 9회", category: "영어", order: 171, deliveryDate: "2026-09-03" },
+  { id: "en_gmk_10", name: "강대모의고사K 영어 10회", category: "영어", order: 172, deliveryDate: "2026-09-10" },
+  { id: "en_gmk_11", name: "강대모의고사K 영어 11회", category: "영어", order: 173, deliveryDate: "2026-09-17" },
+  { id: "en_gmk_12", name: "강대모의고사K 영어 12회", category: "영어", order: 174, deliveryDate: "2026-10-01" },
+  { id: "en_gmk_13", name: "강대모의고사K 영어 13회", category: "영어", order: 175, deliveryDate: "2026-10-08" },
+  { id: "en_gmk_14", name: "강대모의고사K 영어 14회", category: "영어", order: 176, deliveryDate: "2026-10-15" },
+  { id: "en_gmk_15", name: "강대모의고사K 영어 15회", category: "영어", order: 177, deliveryDate: "2026-10-22" },
+  { id: "en_gmk_16", name: "강대모의고사K 영어 16회", category: "영어", order: 178, deliveryDate: "2026-10-29" },
+  { id: "en_gmk_17", name: "강대모의고사K 영어 17회", category: "영어", order: 179, deliveryDate: "2026-11-05" },
 ];
 
 async function seedContentsIfEmpty() {
@@ -744,6 +813,86 @@ async function seedContentsIfEmpty() {
   console.log("초기 콘텐츠 설정 완료");
 }
 seedContentsIfEmpty();
+
+async function seedNewContents() {
+  // 새 콘텐츠 중 하나가 없으면 추가
+  const check = await db.collection("contents").doc("ko_ff_7").get();
+  if (check.exists) return;
+  const batch = db.batch();
+  const NEW_CONTENTS = [
+    { id: "ko_ff_7", name: "FF 7회", category: "국어", order: 116, deliveryDate: "2026-07-02" },
+    { id: "ko_ff_8", name: "FF 8회", category: "국어", order: 117, deliveryDate: "2026-07-09" },
+    { id: "ko_gmk_5", name: "강대모의고사K 국어 5회", category: "국어", order: 118, deliveryDate: "2026-07-16" },
+    { id: "ko_gmk_6", name: "강대모의고사K 국어 6회", category: "국어", order: 119, deliveryDate: "2026-07-30" },
+    { id: "ko_gmk_7", name: "강대모의고사K 국어 7회", category: "국어", order: 120, deliveryDate: "2026-08-20" },
+    { id: "ko_gmk_8", name: "강대모의고사K 국어 8회", category: "국어", order: 121, deliveryDate: "2026-09-03" },
+    { id: "ko_gmk_9", name: "강대모의고사K 국어 9회", category: "국어", order: 122, deliveryDate: "2026-09-17" },
+    { id: "ko_gmk_10", name: "강대모의고사K 국어 10회", category: "국어", order: 123, deliveryDate: "2026-10-01" },
+    { id: "ko_gmk_11", name: "강대모의고사K 국어 11회", category: "국어", order: 124, deliveryDate: "2026-10-15" },
+    { id: "ko_gmk_12", name: "강대모의고사K 국어 12회", category: "국어", order: 125, deliveryDate: "2026-10-22" },
+    { id: "ko_gmk_13", name: "강대모의고사K 국어 13회", category: "국어", order: 126, deliveryDate: "2026-10-29" },
+    { id: "ko_gmk_14", name: "강대모의고사K 국어 14회", category: "국어", order: 127, deliveryDate: "2026-11-05" },
+    { id: "ko_igam_f1_1", name: "이감 파이널Ⅰ 1회", category: "국어", order: 128, deliveryDate: "2026-07-16" },
+    { id: "ko_igam_f1_2", name: "이감 파이널Ⅰ 2회", category: "국어", order: 129, deliveryDate: "2026-07-23" },
+    { id: "ko_igam_f1_3", name: "이감 파이널Ⅰ 3회", category: "국어", order: 130, deliveryDate: "2026-07-30" },
+    { id: "ko_igam_f1_4", name: "이감 파이널Ⅰ 4회", category: "국어", order: 131, deliveryDate: "2026-08-06" },
+    { id: "ko_igam_f1_5", name: "이감 파이널Ⅰ 5회", category: "국어", order: 132, deliveryDate: "2026-08-13" },
+    { id: "ko_igam_f1_6", name: "이감 파이널Ⅰ 6회", category: "국어", order: 133, deliveryDate: "2026-08-20" },
+    { id: "ko_igam_f1_7", name: "이감 파이널Ⅰ 7회", category: "국어", order: 134, deliveryDate: "2026-08-27" },
+    { id: "ko_igam_f1_8", name: "이감 파이널Ⅰ 8회", category: "국어", order: 135, deliveryDate: "2026-09-03" },
+    { id: "ko_igam_f2_1", name: "이감 파이널Ⅱ 1회", category: "국어", order: 136, deliveryDate: "2026-09-10" },
+    { id: "ko_igam_f2_2", name: "이감 파이널Ⅱ 2회", category: "국어", order: 137, deliveryDate: "2026-09-17" },
+    { id: "ko_igam_f2_3", name: "이감 파이널Ⅱ 3회", category: "국어", order: 138, deliveryDate: "2026-09-24" },
+    { id: "ko_igam_f2_4", name: "이감 파이널Ⅱ 4회", category: "국어", order: 139, deliveryDate: "2026-10-01" },
+    { id: "ko_igam_f2_5", name: "이감 파이널Ⅱ 5회", category: "국어", order: 140, deliveryDate: "2026-10-08" },
+    { id: "ko_igam_f2_6", name: "이감 파이널Ⅱ 6회", category: "국어", order: 141, deliveryDate: "2026-10-15" },
+    { id: "ko_igam_f2_7", name: "이감 파이널Ⅱ 7회", category: "국어", order: 142, deliveryDate: "2026-10-22" },
+    { id: "ko_igam_f2_8", name: "이감 파이널Ⅱ 8회", category: "국어", order: 143, deliveryDate: "2026-10-29" },
+    { id: "ko_igam_f2_9", name: "이감 파이널Ⅱ 9회", category: "국어", order: 144, deliveryDate: "2026-11-05" },
+    { id: "ko_igam_f2_10", name: "이감 파이널Ⅱ 10회", category: "국어", order: 145, deliveryDate: "2026-11-06" },
+    { id: "ma_gmk_1_2", name: "강대모의고사K 수학 1·2회", category: "수학", order: 146, deliveryDate: "2026-07-09" },
+    { id: "ma_gmk_3_4", name: "강대모의고사K 수학 3·4회", category: "수학", order: 147, deliveryDate: "2026-07-16" },
+    { id: "ma_gmk_5_6", name: "강대모의고사K 수학 5·6회", category: "수학", order: 148, deliveryDate: "2026-07-23" },
+    { id: "ma_gmk_7_8", name: "강대모의고사K 수학 7·8회", category: "수학", order: 149, deliveryDate: "2026-07-30" },
+    { id: "ma_gmk_9_10", name: "강대모의고사K 수학 9·10회", category: "수학", order: 150, deliveryDate: "2026-08-06" },
+    { id: "ma_gmk_11_12", name: "강대모의고사K 수학 11·12회", category: "수학", order: 151, deliveryDate: "2026-08-13" },
+    { id: "ma_gmk_13_14", name: "강대모의고사K 수학 13·14회", category: "수학", order: 152, deliveryDate: "2026-08-20" },
+    { id: "ma_gmk_15_16", name: "강대모의고사K 수학 15·16회", category: "수학", order: 153, deliveryDate: "2026-08-27" },
+    { id: "ma_gmk_17_18", name: "강대모의고사K 수학 17·18회", category: "수학", order: 154, deliveryDate: "2026-09-03" },
+    { id: "ma_gmk_19_20", name: "강대모의고사K 수학 19·20회", category: "수학", order: 155, deliveryDate: "2026-09-10" },
+    { id: "ma_gmk_21_22", name: "강대모의고사K 수학 21·22회", category: "수학", order: 156, deliveryDate: "2026-09-17" },
+    { id: "ma_gmk_23_24", name: "강대모의고사K 수학 23·24회", category: "수학", order: 157, deliveryDate: "2026-10-01" },
+    { id: "ma_gmk_25_26", name: "강대모의고사K 수학 25·26회", category: "수학", order: 158, deliveryDate: "2026-10-08" },
+    { id: "ma_gmk_27_28", name: "강대모의고사K 수학 27·28회", category: "수학", order: 159, deliveryDate: "2026-10-15" },
+    { id: "ma_gmk_29_30", name: "강대모의고사K 수학 29·30회", category: "수학", order: 160, deliveryDate: "2026-10-22" },
+    { id: "ma_gmk_31_32", name: "강대모의고사K 수학 31·32회", category: "수학", order: 161, deliveryDate: "2026-10-29" },
+    { id: "ma_gmk_33_34", name: "강대모의고사K 수학 33·34회", category: "수학", order: 162, deliveryDate: "2026-11-05" },
+    { id: "en_gmk_1", name: "강대모의고사K 영어 1회", category: "영어", order: 163, deliveryDate: "2026-07-09" },
+    { id: "en_gmk_2", name: "강대모의고사K 영어 2회", category: "영어", order: 164, deliveryDate: "2026-07-16" },
+    { id: "en_gmk_3", name: "강대모의고사K 영어 3회", category: "영어", order: 165, deliveryDate: "2026-07-23" },
+    { id: "en_gmk_4", name: "강대모의고사K 영어 4회", category: "영어", order: 166, deliveryDate: "2026-07-30" },
+    { id: "en_gmk_5", name: "강대모의고사K 영어 5회", category: "영어", order: 167, deliveryDate: "2026-08-06" },
+    { id: "en_gmk_6", name: "강대모의고사K 영어 6회", category: "영어", order: 168, deliveryDate: "2026-08-13" },
+    { id: "en_gmk_7", name: "강대모의고사K 영어 7회", category: "영어", order: 169, deliveryDate: "2026-08-20" },
+    { id: "en_gmk_8", name: "강대모의고사K 영어 8회", category: "영어", order: 170, deliveryDate: "2026-08-27" },
+    { id: "en_gmk_9", name: "강대모의고사K 영어 9회", category: "영어", order: 171, deliveryDate: "2026-09-03" },
+    { id: "en_gmk_10", name: "강대모의고사K 영어 10회", category: "영어", order: 172, deliveryDate: "2026-09-10" },
+    { id: "en_gmk_11", name: "강대모의고사K 영어 11회", category: "영어", order: 173, deliveryDate: "2026-09-17" },
+    { id: "en_gmk_12", name: "강대모의고사K 영어 12회", category: "영어", order: 174, deliveryDate: "2026-10-01" },
+    { id: "en_gmk_13", name: "강대모의고사K 영어 13회", category: "영어", order: 175, deliveryDate: "2026-10-08" },
+    { id: "en_gmk_14", name: "강대모의고사K 영어 14회", category: "영어", order: 176, deliveryDate: "2026-10-15" },
+    { id: "en_gmk_15", name: "강대모의고사K 영어 15회", category: "영어", order: 177, deliveryDate: "2026-10-22" },
+    { id: "en_gmk_16", name: "강대모의고사K 영어 16회", category: "영어", order: 178, deliveryDate: "2026-10-29" },
+    { id: "en_gmk_17", name: "강대모의고사K 영어 17회", category: "영어", order: 179, deliveryDate: "2026-11-05" }
+  ];
+  NEW_CONTENTS.forEach(item => {
+    const ref = db.collection("contents").doc(item.id);
+    batch.set(ref, { name: item.name, category: item.category, order: item.order, deliveryDate: item.deliveryDate });
+  });
+  await batch.commit();
+  console.log("새 콘텐츠 추가 완료:", NEW_CONTENTS.length + "개");
+}
+seedNewContents();
 
 let student              = null;
 let contents             = [];
@@ -847,6 +996,11 @@ function getSeriesName(name) {
   if (base === "CRUX 과학Ⅱ") return "CRUX 과학Ⅱ";
   if (base === "CRUX 과학") return "CRUX 과학Ⅰ";
   if (base === "CIRCUIT 과학" || base === "CIRCUIT 과학Ⅰ") return "CIRCUIT 과학Ⅰ";
+  if (base.startsWith("이감")) return "이감";
+  if (base.startsWith("강대모의고사K 수학")) return "강대모의고사K 수학";
+  if (base.startsWith("강대모의고사K 영어")) return "강대모의고사K 영어";
+  if (base.startsWith("강대모의고사K 국어")) return "강대모의고사K 국어";
+  if (base.startsWith("강대모의고사X 수학")) return "강대모의고사X 수학";
   return base;
 }
 
@@ -873,6 +1027,10 @@ function getContentPrice(name, priceMap) {
   // CONNEX 수학(수I·수II): 두 교재 묶음 → ×2
   if (series === "CONNEX 수학" && name.includes("수I·수II")) {
     return unitPrice * rounds * 2;
+  }
+  // 강대모의고사K 수학: 2회 묶음 → 28,000원 고정
+  if (series === "강대모의고사K 수학") {
+    return 28000;
   }
   // CIRCUIT 계열: 회차 수 × 단가
   if (series === "CIRCUIT 수학" || series === "CIRCUIT 영어" || series === "CIRCUIT 과학Ⅰ") {
