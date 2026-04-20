@@ -394,6 +394,7 @@
         <input type="text" id="adminSidInput" placeholder="학번 입력" maxlength="20"
           style="flex:1;" onkeydown="if(event.key==='Enter') searchStudentStatus()" />
         <button class="btn btn-primary btn-sm" onclick="searchStudentStatus()" style="padding:10px 18px;">검색</button>
+        <button class="btn btn-outline btn-sm" onclick="clearHistorySearch()" style="padding:10px 14px;">초기화</button>
       </div>
     </div>
     <!-- 검색 결과 -->
@@ -401,8 +402,17 @@
     <!-- 신청/취소 전체 이력 -->
     <div class="card">
       <div class="row sb" style="margin-bottom:1rem;">
-        <div class="section-title" style="margin:0;">신청/취소 전체 이력</div>
-        <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">📥 엑셀 다운로드</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="section-title" style="margin:0;">신청/취소 전체 이력</div>
+          <div id="historyFilterLabel" style="font-size:12px;color:#aaa;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#555;cursor:pointer;">
+            <input type="checkbox" id="historyShowAll" style="accent-color:#2BADA0;width:15px;height:15px;"
+              onchange="onHistoryShowAllToggle(this.checked)"> 전체
+          </label>
+          <button class="btn btn-outline btn-sm" onclick="exportChangeHistory()">📥 엑셀 다운로드</button>
+        </div>
       </div>
       <div style="overflow:auto;max-height:480px;border:1px solid #e5e5e3;border-radius:10px;">
         <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px;">
@@ -1513,6 +1523,13 @@ async function searchStudentStatus() {
   el.style.display = "";
   el.innerHTML = '<div class="empty">검색 중...</div>';
 
+  // 이력 테이블 필터 적용
+  _currentHistorySid = sid;
+  _historyShowAll    = false;
+  const cb = document.getElementById("historyShowAll");
+  if (cb) cb.checked = false;
+  renderHistoryTable();
+
   const [studentDoc, subDoc, histSnap, cSnap] = await Promise.all([
     db.collection("students").doc(sid).get(),
     db.collection("submissions").doc(sid).get(),
@@ -1627,6 +1644,24 @@ async function searchStudentStatus() {
     </div>`;
 }
 
+let _currentHistorySid = "";   // 현재 이력 필터 학번 ("" = 전체)
+let _historyShowAll    = false; // 전체 체크박스 상태
+
+function onHistoryShowAllToggle(checked) {
+  _historyShowAll = checked;
+  renderHistoryTable();
+}
+
+function clearHistorySearch() {
+  _currentHistorySid = "";
+  _historyShowAll    = false;
+  const cb = document.getElementById("historyShowAll");
+  if (cb) cb.checked = false;
+  document.getElementById("adminSidInput").value = "";
+  document.getElementById("studentStatusResult").style.display = "none";
+  renderHistoryTable();
+}
+
 async function loadSubmissions() {
   const [cSnap, sSnap, histSnap, settingDoc] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
@@ -1648,43 +1683,71 @@ async function loadSubmissions() {
       const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
       return tb - ta; // 최신순
     });
-
-  // 전체 시리즈 목록
-  const allSeries = [];
-  const seenSeries = new Set();
-  contents.forEach(item => {
-    const s = getSeriesName(item.name);
-    if (!seenSeries.has(s)) { seenSeries.add(s); allSeries.push(s); }
-  });
-
-  // 시리즈별 기준일별 첫 회차 맵 (기준일 → 시리즈 → 회차)
-  const seriesRoundMap = {};
-  histRows.forEach(row => {
-    const rowCutoff = row.cutoffDate;
-    if (!rowCutoff) return;
-    if (!seriesRoundMap[rowCutoff]) seriesRoundMap[rowCutoff] = {};
-    contents.sort((a,b) => a.order - b.order).forEach(item => {
-      const s = getSeriesName(item.name);
-      if (!seriesRoundMap[rowCutoff][s] && item.deliveryDate && item.deliveryDate > rowCutoff) {
-        seriesRoundMap[rowCutoff][s] = getFirstRound(item.name) + "부터";
-      }
+  // 전역 저장 (renderHistoryTable에서 재사용)
+  window._allHistRows = histRows;
+  window._allSeriesList = (() => {
+    const list = []; const seen = new Set();
+    cols.forEach(item => { const s = getSeriesName(item.name); if (!seen.has(s)) { seen.add(s); list.push(s); } });
+    return list;
+  })();
+  window._seriesRoundMapAll = (() => {
+    const map = {};
+    histRows.forEach(row => {
+      const rc = row.cutoffDate; if (!rc) return;
+      if (!map[rc]) map[rc] = {};
+      cols.sort((a,b)=>a.order-b.order).forEach(item => {
+        const s = getSeriesName(item.name);
+        if (!map[rc][s] && item.deliveryDate && item.deliveryDate > rc)
+          map[rc][s] = getFirstRound(item.name) + "부터";
+      });
     });
-  });
+    return map;
+  })();
+
+  renderHistoryTable();
+}
+
+function renderHistoryTable() {
+  const allHistRows   = window._allHistRows    || [];
+  const allSeries     = window._allSeriesList  || [];
+  const seriesRoundMap = window._seriesRoundMapAll || {};
+
+  // 필터 적용: 전체 체크박스 ON이면 전체, 아니면 학번 필터 적용
+  const filteredRows = (_historyShowAll || !_currentHistorySid)
+    ? allHistRows
+    : allHistRows.filter(r => r.studentId === _currentHistorySid);
+
+  // 라벨 업데이트
+  const labelEl = document.getElementById("historyFilterLabel");
+  if (labelEl) {
+    if (_historyShowAll && _currentHistorySid) {
+      labelEl.textContent = "전체 표시 중";
+      labelEl.style.color = "#2BADA0";
+    } else if (_currentHistorySid) {
+      const name = filteredRows[0]?.name || _currentHistorySid;
+      labelEl.textContent = `${name} (${filteredRows.length}건)`;
+      labelEl.style.color = "#ED0081";
+    } else {
+      labelEl.textContent = `전체 ${filteredRows.length}건`;
+      labelEl.style.color = "#aaa";
+    }
+  }
 
   const hHead = document.getElementById("historyTblHead");
   const hBody = document.getElementById("historyTblBody");
+  if (!hHead || !hBody) return;
 
   const thStyle = "background:#f8f8f6;padding:9px 12px;font-weight:600;color:#555;border-bottom:1px solid #e5e5e3;white-space:nowrap;";
   hHead.innerHTML =
     `<th style="${thStyle}">신청/취소 시점</th><th style="${thStyle}">학번</th><th style="${thStyle}">이름</th><th style="${thStyle}">반</th><th style="${thStyle}">그룹</th><th style="${thStyle}">결제방법</th>` +
     allSeries.map(s => `<th style="${thStyle}">${s}</th>`).join("");
 
-  if (!histRows.length) {
+  if (!filteredRows.length) {
     hBody.innerHTML = `<tr><td colspan="${6 + allSeries.length}" style="text-align:center;color:#ccc;padding:1.5rem;">이력이 없습니다</td></tr>`;
     return;
   }
 
-  hBody.innerHTML = histRows.map(s => {
+  hBody.innerHTML = filteredRows.map(s => {
     const submittedAt = s.updatedAt?.toDate
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "-";
@@ -2238,31 +2301,45 @@ async function saveMemo(docId, period, memo) {
 async function exportChangeHistory() {
   toast("엑셀 생성 중...");
 
-  const [sSnap, cSnap, settingDoc] = await Promise.all([
-    db.collection("submissionHistory").orderBy("updatedAt","desc").get(),
-    db.collection("contents").orderBy("order").get(),
-    db.collection("settings").doc("refund").get()
-  ]);
+  // 현재 필터 기준으로 행 결정
+  const allHistRows    = window._allHistRows   || [];
+  const allSeries      = window._allSeriesList || [];
+  const seriesRoundMap = window._seriesRoundMapAll || {};
 
-  const cutoff   = settingDoc.exists ? settingDoc.data().cutoffDate : null;
-  const contents = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const filteredRows = (_historyShowAll || !_currentHistorySid)
+    ? allHistRows
+    : allHistRows.filter(r => r.studentId === _currentHistorySid);
 
-  // 시리즈별 첫 배부 가능 회차 맵
-  const seriesRoundMap = {};
-  contents.sort((a,b) => a.order - b.order).forEach(item => {
-    const series = getSeriesName(item.name);
-    if (!seriesRoundMap[series] && cutoff && item.deliveryDate && item.deliveryDate > cutoff) {
-      seriesRoundMap[series] = getFirstRound(item.name) + "부터";
-    }
+  if (!filteredRows.length) { toast("다운로드할 데이터가 없습니다."); return; }
+
+  // 헤더
+  const headers = ["신청/취소 시점","학번","이름","반","그룹","결제방법",...allSeries];
+
+  const dataRows = filteredRows.map(s => {
+    const submittedAt = s.updatedAt?.toDate
+      ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+      : "";
+    const roundMapForRow = (s.cutoffDate && seriesRoundMap[s.cutoffDate]) || {};
+    const seriesCells = allSeries.map(series => {
+      const val = s.selections?.[series];
+      if (!val) return "-";
+      const label = (val === "환불" || val === "취소") ? "취소" : "신청";
+      const round = roundMapForRow[series] || "";
+      return round ? `${label} ${round}` : label;
+    });
+    return [submittedAt, s.studentId, s.name, s.ban, s.group, s.paymentMethod||"-", ...seriesCells];
   });
 
-  // 전체 시리즈 목록 (순서 유지)
-  const allSeries = [];
-  const seenSeries = new Set();
-  contents.forEach(item => {
-    const s = getSeriesName(item.name);
-    if (!seenSeries.has(s)) { seenSeries.add(s); allSeries.push(s); }
-  });
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+  ws["!cols"] = [
+    {wch:16},{wch:10},{wch:10},{wch:5},{wch:8},{wch:8},
+    ...allSeries.map(()=>({wch:18}))
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "변경이력");
+  const suffix = (_currentHistorySid && !_historyShowAll) ? `_${_currentHistorySid}` : "";
+  XLSX.writeFile(wb, `위클리팩_변경이력${suffix}_${today()}.xlsx`);
+  return; // 아래 구버전 코드 실행 안 함
 
   // 학생+기준일 단위로 합산 (loadChanges와 동일 로직)
   const rawDocs = sSnap.docs
