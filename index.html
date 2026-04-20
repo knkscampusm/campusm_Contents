@@ -1071,7 +1071,7 @@ function renderNotice() {
   if (!refundCutoff) { el.style.display = "none"; return; }
 
   const refundable = contents
-    .filter(c => c.deliveryDate && c.deliveryDate > refundCutoff)
+    .filter(c => c.deliveryDate && c.deliveryDate >= refundCutoff)
     .sort((a, b) => a.order - b.order);
 
   if (!refundable.length) { el.style.display = "none"; return; }
@@ -1084,7 +1084,7 @@ function renderNotice() {
     }
     const entry = allSeriesMap.get(series);
     entry.hasAnyItem = true;
-    if (item.deliveryDate && item.deliveryDate > refundCutoff) {
+    if (item.deliveryDate && item.deliveryDate >= refundCutoff) {
       if (!entry.firstRefundable || item.deliveryDate < entry.firstRefundable.deliveryDate) {
         entry.firstRefundable = item;
       }
@@ -1342,7 +1342,7 @@ function openConfirmModal() {
   function getSeriesInfo(series) {
     if (!refundCutoff) return { round: "", deliveryDate: "", price: 0 };
     const items = contents
-      .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > refundCutoff)
+      .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate >= refundCutoff)
       .sort((a, b) => a.order - b.order);
     const first = items[0];
     const price = first ? getContentPrice(first.name, seriesPrices) : 0;
@@ -1811,7 +1811,7 @@ async function searchStudentStatus() {
         let lastRound = "";
         if (cutoff) {
           const seriesItems = contents
-            .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > cutoff)
+            .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate >= cutoff)
             .sort((a,b) => a.order - b.order);
           if (seriesItems.length) lastRound = getFirstRound(seriesItems[0].name) + "부터";
         }
@@ -1955,7 +1955,7 @@ async function loadSubmissions() {
       if (!map[rc]) map[rc] = {};
       cols.sort((a,b)=>a.order-b.order).forEach(item => {
         const s = getSeriesName(item.name);
-        if (!map[rc][s] && item.deliveryDate && item.deliveryDate > rc)
+        if (!map[rc][s] && item.deliveryDate && item.deliveryDate >= rc)
           map[rc][s] = getFirstRound(item.name) + "부터";
       });
     });
@@ -2194,7 +2194,7 @@ async function loadChanges() {
   const seriesFirstMap = {};
   contents.sort((a,b) => a.order - b.order).forEach(item => {
     const series = getSeriesName(item.name);
-    if (!seriesFirstMap[series] && cutoff && item.deliveryDate && item.deliveryDate > cutoff) {
+    if (!seriesFirstMap[series] && cutoff && item.deliveryDate && item.deliveryDate >= cutoff) {
       seriesFirstMap[series] = item;
     }
   });
@@ -2214,7 +2214,7 @@ async function loadChanges() {
   function getFirstOrderByCutoff(series, cutoffDate) {
     if (!cutoffDate) return Infinity;
     const item = contents
-      .filter(c => getSeriesName(c.name) === series && c.deliveryDate && c.deliveryDate > cutoffDate)
+      .filter(c => getSeriesName(c.name) === series && c.deliveryDate && c.deliveryDate >= cutoffDate)
       .sort((a,b) => a.order - b.order)[0];
     return item ? item.order : Infinity;
   }
