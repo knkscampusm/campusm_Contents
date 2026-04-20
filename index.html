@@ -731,12 +731,13 @@ async function seedContentsIfEmpty() {
 }
 seedContentsIfEmpty();
 
-let student       = null;
-let contents      = [];
-let selections    = {};
-let refundCutoff  = null;
-let seriesPrices  = {};
-let touchedSeries = new Set();
+let student              = null;
+let contents             = [];
+let selections           = {};
+let _originalSelections  = {};  // 조회 시점 초기값
+let refundCutoff         = null;
+let seriesPrices         = {};
+let touchedSeries        = new Set();
 
 function toast(msg) {
   const el = document.getElementById("toast");
@@ -802,10 +803,11 @@ async function loadContentsAndPrev() {
     db.collection("settings").doc("refund").get(),
     db.collection("settings").doc("prices").get()
   ]);
-  contents     = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  selections   = sDoc.exists ? (sDoc.data().selections || {}) : {};
-  refundCutoff = settingDoc.exists ? (settingDoc.data().cutoffDate || null) : null;
-  seriesPrices = { ...DEFAULT_PRICES, ...(priceSnap.exists ? priceSnap.data() : {}) };
+  contents          = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  selections        = sDoc.exists ? (sDoc.data().selections || {}) : {};
+  _originalSelections = { ...selections };  // 초기값 스냅샷
+  refundCutoff      = settingDoc.exists ? (settingDoc.data().cutoffDate || null) : null;
+  seriesPrices      = { ...DEFAULT_PRICES, ...(priceSnap.exists ? priceSnap.data() : {}) };
 }
 
 function getScienceStatus() {
@@ -1134,11 +1136,14 @@ function openConfirmModal() {
   // 변경된 항목 수집
   const touchedSelections = {};
   touchedSeries.forEach(series => {
-    if (selections[series]) touchedSelections[series] = selections[series];
+    if (!selections[series]) return;
+    // 최종값이 초기값과 같으면 제외 (번복 후 원래대로)
+    if (_originalSelections[series] === selections[series]) return;
+    touchedSelections[series] = selections[series];
   });
 
   if (Object.keys(touchedSelections).length === 0) {
-    setMsg("submitMsg", "변경한 콘텐츠가 없습니다.", "error");
+    setMsg("submitMsg", "변경한 콘텐츠가 없습니다. (번복으로 인해 변경 없음)", "error");
     return;
   }
 
@@ -1237,7 +1242,9 @@ async function doSubmit() {
   // 신청 항목이 있는데 결제 방법 미선택
   const touchedSelections = {};
   touchedSeries.forEach(series => {
-    if (selections[series]) touchedSelections[series] = selections[series];
+    if (!selections[series]) return;
+    if (_originalSelections[series] === selections[series]) return;
+    touchedSelections[series] = selections[series];
   });
   const hasApply = Object.values(touchedSelections).some(v => v !== "취소" && v !== "환불");
   if (hasApply && !_selectedPayment) {
@@ -2033,21 +2040,21 @@ async function loadChanges() {
             ? [firstCutoff, lastCutoff]
             : [lastCutoff, firstCutoff];
 
-          // laterCutoff 기준일 이후 첫 번째 배부일 찾기 (이 날짜부터는 포함 안 함)
+          // laterCutoff 기준일 이후 첫 번째 회차 찾기 (이 order 이상은 포함 안 함)
           const laterFirstItem = contents
             .filter(item => getSeriesName(item.name) === series
               && item.deliveryDate && item.deliveryDate > laterCutoff)
             .sort((a,b) => a.order - b.order)[0];
-          const laterFirstDate = laterFirstItem ? laterFirstItem.deliveryDate : null;
+          const laterFirstOrder = laterFirstItem ? laterFirstItem.order : Infinity;
 
-          // earlierCutoff 이후 ~ laterCutoff 기준일 첫 배부일 직전 회차 (차이 구간)
+          // earlierCutoff 이후 ~ laterFirstItem order 직전 회차 (차이 구간)
           const partialItems = contents
             .filter(item => {
               const sn = getSeriesName(item.name);
               if (sn !== series || !item.deliveryDate) return false;
               if (item.deliveryDate <= earlierCutoff) return false;
-              // laterCutoff 이후 첫 배부일보다 이전인 것만
-              if (laterFirstDate && item.deliveryDate >= laterFirstDate) return false;
+              // laterCutoff 이후 첫 회차의 order보다 이전인 것만
+              if (item.order >= laterFirstOrder) return false;
               return true;
             })
             .sort((a,b) => a.order - b.order);
