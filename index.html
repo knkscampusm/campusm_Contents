@@ -496,6 +496,18 @@
   </div>
 </div>
 
+<!-- 콘텐츠 수정 이력 모달 -->
+<div id="contentLogModal" class="overlay">
+  <div class="modal" style="max-width:420px;max-height:85vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <h2 style="margin:0;font-size:15px;" id="contentLogTitle">수정 이력</h2>
+      <button onclick="document.getElementById('contentLogModal').classList.remove('open')"
+        style="font-size:20px;background:none;border:none;cursor:pointer;color:#aaa;line-height:1;">✕</button>
+    </div>
+    <div id="contentLogBody"><div class="empty">불러오는 중...</div></div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════
      ADMIN LOGIN MODAL
 ══════════════════════════════ -->
@@ -1458,7 +1470,7 @@ async function loadAdminContents() {
             <input type="checkbox" class="content-check" data-id="${item.id}"
               style="width:15px;height:15px;accent-color:#2BADA0;flex-shrink:0;cursor:pointer;" />
             <span style="font-size:10px;font-weight:700;color:${catColor};padding:2px 6px;background:${catColor}18;border-radius:6px;flex-shrink:0;">${item.category||""}</span>
-            <div style="flex:1;font-size:13px;color:#333;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</div>
+            <div onclick="showContentLog('${item.id}','${item.name.replace(/'/g,"\\'")}')" style="flex:1;font-size:13px;color:#333;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" title="수정 이력 보기">${item.name}</div>
             ${priceStr}
             <input type="date" value="${item.deliveryDate || ''}"
               style="padding:3px 6px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;outline:none;width:128px;flex-shrink:0;"
@@ -1492,8 +1504,61 @@ async function loadAdminContents() {
 }
 
 async function updateDeliveryDate(id, date) {
+  // 이전 배부일 조회
+  const prev = await db.collection("contents").doc(id).get();
+  const oldDate = prev.exists ? (prev.data().deliveryDate || "") : "";
+  const contentName = prev.exists ? (prev.data().name || "") : "";
+
   await db.collection("contents").doc(id).update({ deliveryDate: date || null });
+
+  // 변경 이력 저장
+  await db.collection("contentLogs").add({
+    contentId:   id,
+    contentName: contentName,
+    oldDate:     oldDate,
+    newDate:     date || "",
+    changedBy:   _currentStaff || "알 수 없음",
+    changedAt:   firebase.firestore.FieldValue.serverTimestamp()
+  });
+
   toast("배부일이 수정되었습니다");
+}
+
+async function showContentLog(contentId, contentName) {
+  document.getElementById("contentLogTitle").textContent = `📋 ${contentName} 수정 이력`;
+  document.getElementById("contentLogBody").innerHTML = '<div class="empty">불러오는 중...</div>';
+  document.getElementById("contentLogModal").classList.add("open");
+
+  const snap = await db.collection("contentLogs")
+    .where("contentId", "==", contentId)
+    .orderBy("changedAt", "desc")
+    .get();
+
+  if (snap.empty) {
+    document.getElementById("contentLogBody").innerHTML = '<div class="empty">수정 이력이 없습니다.</div>';
+    return;
+  }
+
+  document.getElementById("contentLogBody").innerHTML = snap.docs.map(d => {
+    const data = d.data();
+    const changedAt = data.changedAt?.toDate
+      ? data.changedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+      : "-";
+    const oldStr = data.oldDate || "없음";
+    const newStr = data.newDate || "없음";
+    return `
+      <div style="padding:10px 0;border-bottom:1px solid #f0f0ee;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div style="flex:1;">
+          <div style="font-size:13px;color:#333;margin-bottom:3px;">
+            <span style="color:#aaa;text-decoration:line-through;">${oldStr}</span>
+            <span style="color:#888;margin:0 6px;">→</span>
+            <span style="color:#2BADA0;font-weight:600;">${newStr}</span>
+          </div>
+          <div style="font-size:11px;color:#bbb;">${changedAt}</div>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:#555;background:#f0f0ee;padding:3px 10px;border-radius:12px;flex-shrink:0;">${data.changedBy || "-"}</div>
+      </div>`;
+  }).join("");
 }
 
 async function updateSeriesPrice(series, val) {
@@ -2410,6 +2475,7 @@ document.addEventListener("keydown", e => {
     closeModal();
     closeCutoffModal();
     closeAddContentModal();
+    document.getElementById("contentLogModal").classList.remove("open");
   }
 });
 </script>
