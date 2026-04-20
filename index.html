@@ -1737,16 +1737,22 @@ function clearHistorySearch() {
 }
 
 async function loadSubmissions() {
-  const [cSnap, sSnap, histSnap, settingDoc] = await Promise.all([
+  const [cSnap, sSnap, histSnap, settingDoc, studentsSnap] = await Promise.all([
     db.collection("contents").orderBy("order").get(),
     db.collection("submissions").get(),
     db.collection("submissionHistory").orderBy("updatedAt","desc").get(),
-    db.collection("settings").doc("refund").get()
+    db.collection("settings").doc("refund").get(),
+    db.collection("students").get()
   ]);
   const cols     = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   const subs     = sSnap.docs.map(d => d.data());
   const cutoff   = settingDoc.exists ? settingDoc.data().cutoffDate : null;
   const contents = cols;
+
+  // 학생 맵: studentId → { subject1, subject2, subjectType }
+  const studentMap = {};
+  studentsSnap.docs.forEach(d => { studentMap[d.id] = d.data(); });
+  window._studentMap = studentMap;
 
   // ── 신청/취소 전체 이력 테이블 ── (합산 없이 원본 이력 그대로)
   const histRows = histSnap.docs
@@ -1821,18 +1827,44 @@ function renderHistoryTable() {
     return;
   }
 
+  // 과학 시리즈 판별
+  const scienceSeriesI  = ["CRUX 과학Ⅰ", "CIRCUIT 과학Ⅰ"];
+  const scienceSeriesII = ["CRUX 과학Ⅱ"];
+  const allScienceSeries = [...scienceSeriesI, ...scienceSeriesII];
+
   hBody.innerHTML = filteredRows.map(s => {
     const submittedAt = s.updatedAt?.toDate
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "-";
     const roundMapForRow = (s.cutoffDate && seriesRoundMap[s.cutoffDate]) || {};
+
+    // 학생 탐구 과목 정보
+    const stuData  = (window._studentMap || {})[s.studentId] || {};
+    const sub1     = stuData.subject1 || "";
+    const sub2     = stuData.subject2 || "";
+    const hasScI   = sub1.includes("Ⅰ") || sub2.includes("Ⅰ");
+    const hasScII  = sub1.includes("Ⅱ") || sub2.includes("Ⅱ");
+    const isSocial = !hasScI && !hasScII; // 과학탐구 과목 없으면 사회탐구
+
     return `<tr>
       <td style="color:#ED0081;font-size:12px;white-space:nowrap;">${submittedAt}</td>
       <td>${s.studentId}</td><td>${s.name}</td><td>${s.ban}</td><td>${s.group}</td>
       <td style="color:#2BADA0;font-size:12px;">${s.paymentMethod || "-"}</td>
       ${allSeries.map(series => {
+        const isSciSeries = allScienceSeries.includes(series);
+
+        // 과학 시리즈 + 사회탐구 학생 → 해당없음
+        if (isSciSeries) {
+          const isScI  = scienceSeriesI.includes(series);
+          const isScII = scienceSeriesII.includes(series);
+          if ((isScI && !hasScI) || (isScII && !hasScII)) {
+            return `<td style="color:#ccc;font-size:11px;">해당없음</td>`;
+          }
+        }
+
         const val = s.selections?.[series];
-        if (!val) return `<td style="color:#ddd;">-</td>`;
+        // 값 없으면 신청으로 간주
+        if (!val) return `<td class="tag-a" style="font-size:12px;">신청</td>`;
         const isCancel = val === "취소" || val === "환불";
         const label = isCancel ? "취소" : "신청";
         const round = roundMapForRow[series] || "";
@@ -2553,9 +2585,21 @@ async function exportChangeHistory() {
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "";
     const roundMapForRow = (s.cutoffDate && seriesRoundMap[s.cutoffDate]) || {};
+    const stuData2  = (window._studentMap || {})[s.studentId] || {};
+    const sub1e     = stuData2.subject1 || "";
+    const sub2e     = stuData2.subject2 || "";
+    const hasScIe   = sub1e.includes("Ⅰ") || sub2e.includes("Ⅰ");
+    const hasScIIe  = sub1e.includes("Ⅱ") || sub2e.includes("Ⅱ");
+    const sciSeriesIe  = ["CRUX 과학Ⅰ", "CIRCUIT 과학Ⅰ"];
+    const sciSeriesIIe = ["CRUX 과학Ⅱ"];
+
     const seriesCells = allSeries.map(series => {
+      // 과학 해당없음 체크
+      if (sciSeriesIe.includes(series) && !hasScIe) return "해당없음";
+      if (sciSeriesIIe.includes(series) && !hasScIIe) return "해당없음";
+
       const val = s.selections?.[series];
-      if (!val) return "-";
+      if (!val) return "신청"; // 값 없으면 신청으로 간주
       const label = (val === "환불" || val === "취소") ? "취소" : "신청";
       const round = roundMapForRow[series] || "";
       return round ? `${label} ${round}` : label;
