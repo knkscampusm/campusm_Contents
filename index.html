@@ -1469,13 +1469,16 @@ async function doSubmit() {
           { title: "➡️ 변경 처리로 이동", description: adminUrl }
         ]
       };
-      await fetch("https://wh.jandi.com/connect-api/webhook/21903148/fbed84b1f9f693d8f2ff0ea78931b004", {
+      const res = await fetch("https://wh.jandi.com/connect-api/webhook/21903148/fbed84b1f9f693d8f2ff0ea78931b004", {
         method: "POST",
         headers: { "Accept": "application/vnd.tosslab.jandi-v2+json", "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
+      console.log("잔디 웹훅 상태:", res.status);
+      const txt = await res.text();
+      console.log("잔디 웹훅 응답:", txt);
     } catch(e) {
-      console.warn("잔디 웹훅 실패:", e);
+      console.warn("잔디 웹훅 실패:", e.message);
     }
 
     closeConfirmModal();
