@@ -2331,7 +2331,9 @@ async function loadChanges() {
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "";
     // 기준일 표시: 여러 개면 모두 표시
-    const periodLabel = mergedPeriods.filter(p => p !== "기준일 미설정").map(p => formatDateKR(p)).join(", ");
+    // 가장 최신 기준일 하나만 표시
+    const sortedPeriods = mergedPeriods.filter(p => p !== "기준일 미설정").sort().reverse();
+    const periodLabel = sortedPeriods.length > 0 ? formatDateKR(sortedPeriods[0]) : "";
     // toggleProcessed용: 합산 건은 모든 docId/period 처리
     const toggleDocIds   = JSON.stringify(mergedDocIds).replace(/"/g, "&quot;");
     const togglePeriods  = JSON.stringify(mergedPeriods).replace(/"/g, "&quot;");
