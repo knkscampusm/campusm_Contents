@@ -2011,19 +2011,50 @@ function renderHistoryTable() {
   const scienceSeriesII = ["CRUX 과학Ⅱ"];
   const allScienceSeries = [...scienceSeriesI, ...scienceSeriesII];
 
-  hBody.innerHTML = filteredRows.map(s => {
+  // ── 학생별로 합산 (최신값 기준) ──
+  // filteredRows는 최신순 정렬 → 오래된 것부터 처리해서 최신값이 덮어씀
+  const studentMerged = new Map(); // studentId → { latest row, merged selections }
+  [...filteredRows].reverse().forEach(s => {
+    if (!studentMerged.has(s.studentId)) {
+      studentMerged.set(s.studentId, { ...s, _mergedSel: { ...s.selections } });
+    } else {
+      const existing = studentMerged.get(s.studentId);
+      // 최신값으로 덮어쓰기 (reverse했으므로 나중에 처리될수록 최신)
+      Object.entries(s.selections || {}).forEach(([series, val]) => {
+        existing._mergedSel[series] = val;
+      });
+      // 메타는 가장 최신 행 기준
+      existing.updatedAt    = s.updatedAt;
+      existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
+      existing.name  = s.name  || existing.name;
+      existing.ban   = s.ban   || existing.ban;
+      existing.group = s.group || existing.group;
+    }
+  });
+
+  const mergedRows = Array.from(studentMerged.values())
+    .sort((a, b) => {
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return tb - ta;
+    });
+
+  hBody.innerHTML = mergedRows.map(s => {
     const submittedAt = s.updatedAt?.toDate
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "-";
+
+    // 가장 최신 cutoffDate 기준으로 회차 맵
     const roundMapForRow = (s.cutoffDate && seriesRoundMap[s.cutoffDate]) || {};
 
     // 학생 탐구 과목 정보
     const stuData  = (window._studentMap || {})[s.studentId] || {};
-    const sub1     = stuData.subject1 || "";
-    const sub2     = stuData.subject2 || "";
+    const sub1     = stuData.subject1 || s.subject1 || "";
+    const sub2     = stuData.subject2 || s.subject2 || "";
     const hasScI   = sub1.includes("Ⅰ") || sub2.includes("Ⅰ");
     const hasScII  = sub1.includes("Ⅱ") || sub2.includes("Ⅱ");
-    const isSocial = !hasScI && !hasScII; // 과학탐구 과목 없으면 사회탐구
+
+    const mergedSel = s._mergedSel || {};
 
     return `<tr>
       <td style="color:#ED0081;font-size:12px;white-space:nowrap;">${submittedAt}</td>
@@ -2032,7 +2063,7 @@ function renderHistoryTable() {
       ${allSeries.map(series => {
         const isSciSeries = allScienceSeries.includes(series);
 
-        // 과학 시리즈 + 사회탐구 학생 → 해당없음
+        // 과학 시리즈 + 과학탐구 아닌 학생 → 해당없음
         if (isSciSeries) {
           const isScI  = scienceSeriesI.includes(series);
           const isScII = scienceSeriesII.includes(series);
@@ -2041,12 +2072,12 @@ function renderHistoryTable() {
           }
         }
 
-        const val = s.selections?.[series];
-        if (!val) return `<td style="color:#ddd;">-</td>`;
+        const val = mergedSel[series];
         const isCancel = val === "취소" || val === "환불";
+        // 값 없으면 신청, 환불/취소면 취소
         const label = isCancel ? "취소" : "신청";
-        const round = roundMapForRow[series] || "";
         const cls   = isCancel ? "tag-r" : "tag-a";
+        const round = roundMapForRow[series] || "";
         return `<td class="${cls}" style="font-size:12px;">${label}${round ? "<br><span style='font-size:10px;font-weight:400;color:#aaa;'>"+round+"</span>" : ""}</td>`;
       }).join("")}
     </tr>`;
@@ -2768,30 +2799,50 @@ async function exportChangeHistory() {
 
   if (!filteredRows.length) { toast("다운로드할 데이터가 없습니다."); return; }
 
+  // 학생별 합산 (최신값 기준)
+  const excelMerged = new Map();
+  [...filteredRows].reverse().forEach(s => {
+    if (!excelMerged.has(s.studentId)) {
+      excelMerged.set(s.studentId, { ...s, _mergedSel: { ...s.selections } });
+    } else {
+      const existing = excelMerged.get(s.studentId);
+      Object.entries(s.selections || {}).forEach(([series, val]) => {
+        existing._mergedSel[series] = val;
+      });
+      existing.updatedAt     = s.updatedAt;
+      existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
+    }
+  });
+  const mergedExcelRows = Array.from(excelMerged.values())
+    .sort((a, b) => {
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return tb - ta;
+    });
+
   // 헤더
   const headers = ["신청/취소 시점","학번","이름","반","그룹","결제방법",...allSeries];
 
-  const dataRows = filteredRows.map(s => {
+  const dataRows = mergedExcelRows.map(s => {
     const submittedAt = s.updatedAt?.toDate
       ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
       : "";
     const roundMapForRow = (s.cutoffDate && seriesRoundMap[s.cutoffDate]) || {};
     const stuData2  = (window._studentMap || {})[s.studentId] || {};
-    const sub1e     = stuData2.subject1 || "";
-    const sub2e     = stuData2.subject2 || "";
+    const sub1e     = stuData2.subject1 || s.subject1 || "";
+    const sub2e     = stuData2.subject2 || s.subject2 || "";
     const hasScIe   = sub1e.includes("Ⅰ") || sub2e.includes("Ⅰ");
     const hasScIIe  = sub1e.includes("Ⅱ") || sub2e.includes("Ⅱ");
     const sciSeriesIe  = ["CRUX 과학Ⅰ", "CIRCUIT 과학Ⅰ"];
     const sciSeriesIIe = ["CRUX 과학Ⅱ"];
+    const mergedSel = s._mergedSel || {};
 
     const seriesCells = allSeries.map(series => {
-      // 과학 해당없음 체크
       if (sciSeriesIe.includes(series) && !hasScIe) return "해당없음";
       if (sciSeriesIIe.includes(series) && !hasScIIe) return "해당없음";
-
-      const val = s.selections?.[series];
-      if (!val) return "-";
-      const label = (val === "환불" || val === "취소") ? "취소" : "신청";
+      const val = mergedSel[series];
+      const isCancel = val === "환불" || val === "취소";
+      const label = isCancel ? "취소" : "신청";
       const round = roundMapForRow[series] || "";
       return round ? `${label} ${round}` : label;
     });
