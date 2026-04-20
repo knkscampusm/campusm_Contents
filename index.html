@@ -2042,8 +2042,7 @@ function renderHistoryTable() {
         }
 
         const val = s.selections?.[series];
-        // 값 없으면 신청으로 간주
-        if (!val) return `<td class="tag-a" style="font-size:12px;">신청</td>`;
+        if (!val) return `<td style="color:#ddd;">-</td>`;
         const isCancel = val === "취소" || val === "환불";
         const label = isCancel ? "취소" : "신청";
         const round = roundMapForRow[series] || "";
@@ -2791,7 +2790,7 @@ async function exportChangeHistory() {
       if (sciSeriesIIe.includes(series) && !hasScIIe) return "해당없음";
 
       const val = s.selections?.[series];
-      if (!val) return "신청"; // 값 없으면 신청으로 간주
+      if (!val) return "-";
       const label = (val === "환불" || val === "취소") ? "취소" : "신청";
       const round = roundMapForRow[series] || "";
       return round ? `${label} ${round}` : label;
