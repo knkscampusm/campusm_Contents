@@ -1977,26 +1977,41 @@ async function loadChanges() {
     return item ? item.order : Infinity;
   }
 
-  // key: "studentId__cutoffDate" (기준일별로 분리)
-  // 단, _seriesHistory는 학생 단위로 별도 추적
-  const seriesHistoryByStudent = {}; // studentId → { series: [...] }
+  // ── 처리완료 시점 기준으로 이력 세그먼트 분리 ──
+  // rawDocs는 오름차순(오래된 것 먼저) 정렬되어 있음
+  // 학생별로 "처리완료 이후 새 세그먼트"를 추적
+  // seriesHistoryByStudentSegment: studentId → 현재 세그먼트의 시리즈 이력
+  const seriesHistoryByStudentSegment = {}; // studentId → { series: [...] }
+  // 학생별 마지막 처리완료 시점 추적 (처리완료 후 이력 리셋용)
+  const lastProcessedAtByStudent = {}; // studentId → updatedAt timestamp
+
   const groupMap = new Map();
   rawDocs.forEach(s => {
     const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
-    // 학생별 시리즈 이력 누적
-    if (!seriesHistoryByStudent[s.studentId]) seriesHistoryByStudent[s.studentId] = {};
-    const studentHist = seriesHistoryByStudent[s.studentId];
-    Object.entries(s.selections || {}).forEach(([series, val]) => {
-      const firstOrder = getFirstOrderByCutoff(series, s.cutoffDate);
-      if (!studentHist[series]) studentHist[series] = [];
-      const hist = studentHist[series];
-      const lastHist = hist[hist.length - 1];
-      if (!lastHist || lastHist.val !== val || lastHist.firstOrder !== firstOrder) {
-        hist.push({ val, cutoffDate: s.cutoffDate, firstOrder });
-      }
-    });
+    const period = s.cutoffDate || "기준일 미설정";
+    const isProcessed = !!(s.processedByPeriod && s.processedByPeriod[period]);
+
+    // 처리완료된 건이면 → 해당 학생의 시리즈 이력 리셋
+    if (isProcessed) {
+      seriesHistoryByStudentSegment[s.studentId] = {};
+    }
+
+    // 현재 세그먼트에 이력 누적 (미처리 건만)
+    if (!isProcessed) {
+      if (!seriesHistoryByStudentSegment[s.studentId]) seriesHistoryByStudentSegment[s.studentId] = {};
+      const studentHist = seriesHistoryByStudentSegment[s.studentId];
+      Object.entries(s.selections || {}).forEach(([series, val]) => {
+        const firstOrder = getFirstOrderByCutoff(series, s.cutoffDate);
+        if (!studentHist[series]) studentHist[series] = [];
+        const hist = studentHist[series];
+        const lastHist = hist[hist.length - 1];
+        if (!lastHist || lastHist.val !== val || lastHist.firstOrder !== firstOrder) {
+          hist.push({ val, cutoffDate: s.cutoffDate, firstOrder });
+        }
+      });
+    }
+
     if (!groupMap.has(key)) {
-      // _seriesHistory는 학생 전체 이력(seriesHistoryByStudent)에서 참조
       groupMap.set(key, { ...s, selections: { ...s.selections }, _historyCount: 1 });
     } else {
       const existing = groupMap.get(key);
@@ -2014,9 +2029,9 @@ async function loadChanges() {
     }
   });
 
-  // groupMap 각 항목에 학생 전체 시리즈 이력 주입
+  // groupMap 각 항목에 현재 세그먼트 시리즈 이력 주입
   groupMap.forEach((val, key) => {
-    val._seriesHistory = seriesHistoryByStudent[val.studentId] || {};
+    val._seriesHistory = seriesHistoryByStudentSegment[val.studentId] || {};
   });
 
   // ── 같은 학생의 미처리 건 여러 개를 하나로 합산 ──
