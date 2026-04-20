@@ -1477,7 +1477,7 @@ async function doSubmit() {
       if (cancelList.length) lines.push(`[취소] ${cancelList.join(", ")}`);
       const adminUrl = "https://knkscampusm.github.io/campusm_Contents/#admin";
       const body = {
-        body: `📋 위클리팩 신청/취소`,
+        body: ``,
         connectColor: applyList.length ? "#2BADA0" : "#e5534b",
         connectInfo: [
           { title: "학생", description: `${student.name} (${student.ban}반 ${student.group}그룹 · ${student.id})` },
