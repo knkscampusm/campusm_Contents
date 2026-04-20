@@ -1968,15 +1968,25 @@ async function loadChanges() {
       return ta - tb;
     });
 
+  // 시리즈별 cutoffDate 기준 첫 배부 회차 order 계산 헬퍼
+  function getFirstOrderByCutoff(series, cutoffDate) {
+    if (!cutoffDate) return Infinity;
+    const item = contents
+      .filter(c => getSeriesName(c.name) === series && c.deliveryDate && c.deliveryDate > cutoffDate)
+      .sort((a,b) => a.order - b.order)[0];
+    return item ? item.order : Infinity;
+  }
+
   // key: "studentId__cutoffDate"
   const groupMap = new Map();
   rawDocs.forEach(s => {
     const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}`;
     if (!groupMap.has(key)) {
-      // 첫 등장: 시리즈별 이력 추적 초기화
+      // 첫 등장: 시리즈별 이력 추적 초기화 (첫 배부 회차 order 포함)
       const seriesHistory = {};
       Object.entries(s.selections || {}).forEach(([series, val]) => {
-        seriesHistory[series] = [{ val, cutoffDate: s.cutoffDate }];
+        const firstOrder = getFirstOrderByCutoff(series, s.cutoffDate);
+        seriesHistory[series] = [{ val, cutoffDate: s.cutoffDate, firstOrder }];
       });
       groupMap.set(key, { ...s, selections: { ...s.selections }, _historyCount: 1, _seriesHistory: seriesHistory });
     } else {
@@ -1987,11 +1997,12 @@ async function loadChanges() {
         const prevVal = existing.selections[series];
         existing.selections[series] = val;
         if (!existing._seriesHistory[series]) existing._seriesHistory[series] = [];
-        // 이전값과 다를 때만 이력 추가 (중복 방지)
         const hist = existing._seriesHistory[series];
         const lastHist = hist[hist.length - 1];
-        if (!lastHist || lastHist.val !== val || lastHist.cutoffDate !== s.cutoffDate) {
-          hist.push({ val, cutoffDate: s.cutoffDate });
+        const firstOrder = getFirstOrderByCutoff(series, s.cutoffDate);
+        // 이전값과 다를 때만 이력 추가
+        if (!lastHist || lastHist.val !== val || lastHist.firstOrder !== firstOrder) {
+          hist.push({ val, cutoffDate: s.cutoffDate, firstOrder });
         }
       });
       existing.docId         = s.docId;
@@ -2093,34 +2104,24 @@ async function loadChanges() {
         // 같은 방향이면 번복 아님 (취소→취소, 신청→신청)
         if (firstIsCancel === lastIsCancel) return;
 
-        const firstCutoff = first.cutoffDate || "";
-        const lastCutoff  = last.cutoffDate  || "";
+        const firstOrder = first.firstOrder ?? Infinity;
+        const lastOrder  = last.firstOrder  ?? Infinity;
 
-        if (firstCutoff === lastCutoff) {
-          // 케이스 1: 같은 기준일 번복 → 상계
+        if (firstOrder === lastOrder) {
+          // 케이스 1: 같은 첫 배부 회차 → 상계
           seriesNetInfo[series] = { netted: true };
         } else {
-          // 케이스 2: 다른 기준일 번복 → 차이 회차만 처리
-          const [earlierCutoff, laterCutoff] = firstCutoff < lastCutoff
-            ? [firstCutoff, lastCutoff]
-            : [lastCutoff, firstCutoff];
+          // 케이스 2: 다른 첫 배부 회차 → 차이 구간만 처리
+          const [earlierOrder, laterOrder] = firstOrder < lastOrder
+            ? [firstOrder, lastOrder]
+            : [lastOrder, firstOrder];
 
-          // laterCutoff 기준일 이후 첫 번째 회차 찾기 (이 order 이상은 포함 안 함)
-          const laterFirstItem = contents
-            .filter(item => getSeriesName(item.name) === series
-              && item.deliveryDate && item.deliveryDate > laterCutoff)
-            .sort((a,b) => a.order - b.order)[0];
-          const laterFirstOrder = laterFirstItem ? laterFirstItem.order : Infinity;
-
-          // earlierCutoff 이후 ~ laterFirstItem order 직전 회차 (차이 구간)
+          // earlierOrder 이상 ~ laterOrder 미만 회차 (차이 구간)
           const partialItems = contents
             .filter(item => {
               const sn = getSeriesName(item.name);
               if (sn !== series || !item.deliveryDate) return false;
-              if (item.deliveryDate <= earlierCutoff) return false;
-              // laterCutoff 이후 첫 회차의 order보다 이전인 것만
-              if (item.order >= laterFirstOrder) return false;
-              return true;
+              return item.order >= earlierOrder && item.order < laterOrder;
             })
             .sort((a,b) => a.order - b.order);
 
