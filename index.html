@@ -2239,12 +2239,17 @@ async function loadChanges() {
             partialMonthly[ym].push(item);
           });
 
-          const firstPartialRound = getFirstRound(partialItems[0].name);
-          const lastPartialRound  = getFirstRound(partialItems[partialItems.length-1].name);
           const partialActionLabel = isCancel ? "취소" : "신청";
-          const roundLabel = partialItems.length === 1
-            ? `${firstPartialRound}만 ${partialActionLabel}`
-            : `${firstPartialRound}~${lastPartialRound}만 ${partialActionLabel}`;
+          // 월별 묶음 단위로 회차 표시 (배부일 같은 것끼리 묶음)
+          const partialRoundGroups = [];
+          const seenDates = new Set();
+          partialItems.forEach(item => {
+            if (!seenDates.has(item.deliveryDate)) {
+              seenDates.add(item.deliveryDate);
+              partialRoundGroups.push(getFirstRound(item.name));
+            }
+          });
+          const roundLabel = partialRoundGroups.join(", ") + `만 ${partialActionLabel}`;
 
           const seriesHeader = `
             <div style="display:flex;align-items:center;gap:5px;font-size:13px;padding:4px 0 2px;">
@@ -2327,6 +2332,9 @@ async function loadChanges() {
     }
 
     const changeList = renderGroup(applyEntries, "신청", "#2BADA0") + renderGroup(cancelEntries, "취소", "#e5534b");
+
+    // 상계 후 표시할 내용이 없으면 카드 숨김
+    if (!changeList.trim()) return "";
 
     const totalColor  = totalAmount < 0 ? "#e5534b" : "#2BADA0";
     const totalStr    = totalAmount !== 0
