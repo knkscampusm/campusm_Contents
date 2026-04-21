@@ -1477,13 +1477,7 @@ async function doSubmit() {
       if (cancelList.length) lines.push(`[취소] ${cancelList.join(", ")}`);
       const adminUrl = "https://knkscampusm.github.io/campusm_Contents/#admin";
       const body = {
-        body: ` `,
-        connectColor: applyList.length ? "#2BADA0" : "#e5534b",
-        connectInfo: [
-          { title: "학생", description: `${student.name} (${student.ban}반 ${student.group}그룹 · ${student.id})` },
-          { title: "변경 내역", description: lines.join("\n") || "-" },
-          { title: "➡️ 변경 처리로 이동", description: adminUrl }
-        ]
+        body: `📋 위클리팩 신청/취소\n학생: ${student.name} (${student.ban}반 ${student.group}그룹 · ${student.id})\n변경 내역: ${lines.join(", ") || "-"}\n➡️ 변경 처리로 이동: ${adminUrl}`,
       };
       const res = await fetch("https://wh.jandi.com/connect-api/webhook/21903148/fbed84b1f9f693d8f2ff0ea78931b004", {
         method: "POST",
