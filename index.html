@@ -2191,6 +2191,15 @@ function toggleFilter() {
   btn.style.background = _showOnlyUnprocessed ? "#ED0081" : "#fff";
   btn.style.color      = _showOnlyUnprocessed ? "#fff" : "#ED0081";
   btn.textContent      = _showOnlyUnprocessed ? "전체 보기" : "미처리만 보기";
+
+  // 미처리만 보기 켜면 기간 전체로, 끄면 최근 1개월로 복귀
+  const r1m  = document.querySelector('input[name="periodFilter"][value="1m"]');
+  const rAll = document.querySelector('input[name="periodFilter"][value="all"]');
+  if (_showOnlyUnprocessed) {
+    if (rAll) { rAll.checked = true; onPeriodFilterChange("all"); }
+  } else {
+    if (r1m)  { r1m.checked  = true; onPeriodFilterChange("1m"); }
+  }
   loadChanges();
 }
 
