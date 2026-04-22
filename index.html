@@ -227,6 +227,8 @@
     tr:last-child td { border-bottom: none; }
     .tag-r { color: #e5534b; font-weight: 600; }
     .tag-a { color: #2BADA0; font-weight: 600; }
+    .sort-item { padding:6px 14px; font-size:13px; font-weight:600; background:#f4f4f2; border:1.5px solid #ddd; border-radius:20px; cursor:grab; user-select:none; color:#555; }
+    .sort-item.drag-over { border-color:#2BADA0; background:#e4f5f3; color:#2BADA0; }
 
     /* ── TOGGLE SWITCH ── */
     .toggle-wrap { display:flex; align-items:center; flex-shrink:0; }
@@ -357,6 +359,7 @@
     <div class="tab active" onclick="switchTab(0)">콘텐츠 관리</div>
     <div class="tab" onclick="switchTab(1)">신청/취소 현황</div>
     <div class="tab" onclick="switchTab(2)">변경 처리</div>
+    <div class="tab" onclick="switchTab(3)">작업 명단</div>
   </div>
 
   <!-- 콘텐츠 관리 -->
@@ -466,6 +469,36 @@
   </div>
 
 </div>
+
+  <!-- 작업 명단 -->
+  <div id="tab3" class="tab-pane">
+    <div class="card">
+      <div class="section-title" style="margin-bottom:1rem;">📋 위클리팩 작업 명단 생성</div>
+
+      <!-- 배부일 선택 -->
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:13px;color:#888;font-weight:500;margin-bottom:6px;">배부일 선택</div>
+        <select id="workDateSelect" style="padding:8px 12px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fafafa;outline:none;width:100%;max-width:240px;">
+          <option value="">배부일을 선택하세요</option>
+        </select>
+      </div>
+
+      <!-- 정렬 기준 -->
+      <div style="margin-bottom:1.25rem;">
+        <div style="font-size:13px;color:#888;font-weight:500;margin-bottom:8px;">정렬 기준 순서 <span style="font-size:11px;color:#bbb;">(드래그로 순서 변경)</span></div>
+        <div id="sortOrderList" style="display:flex;flex-wrap:wrap;gap:6px;">
+          <div class="sort-item" data-key="seat" draggable="true">🏢 독서실</div>
+          <div class="sort-item" data-key="group" draggable="true">👥 그룹</div>
+          <div class="sort-item" data-key="koreanChoice" draggable="true">📖 국어선택</div>
+          <div class="sort-item" data-key="mathChoice" draggable="true">📐 수학선택</div>
+          <div class="sort-item" data-key="subject" draggable="true">🔬 과학선택</div>
+          <div class="sort-item" data-key="name" draggable="true">👤 이름</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="generateWorkList()" style="padding:10px 24px;">📥 엑셀 생성</button>
+    </div>
+  </div>
 
 <!-- 기준일 설정 모달 -->
 <div id="cutoffModal" class="overlay">
@@ -3069,6 +3102,7 @@ function switchTab(idx) {
   localStorage.setItem("adminTab", idx);
   if (idx === 1) loadSubmissions();
   if (idx === 2) loadChanges();
+  if (idx === 3) loadWorkListTab();
 }
 
 // Firebase Auth 대신 sessionStorage 기반으로 관리자 상태 복원
@@ -3101,6 +3135,239 @@ document.addEventListener("keydown", e => {
     document.getElementById("contentLogModal").classList.remove("open");
   }
 });
+
+// ──────────────────────────────────────────
+// 작업 명단 탭
+// ──────────────────────────────────────────
+
+function getSeatCategory(seat) {
+  if (!seat) return "";
+  const s = seat.trim();
+  if (s.startsWith("Q1-4")) return "Q1-4";
+  if (s.startsWith("Q1-")) return "Q동";
+  if (s.startsWith("Q3-")) return "3층";
+  if (s.startsWith("Q4-")) return "4층";
+  return seat;
+}
+
+async function loadWorkListTab() {
+  // 배부일 목록 로드
+  const snap = await db.collection("contents").orderBy("deliveryDate").get();
+  const dates = new Set();
+  snap.docs.forEach(d => {
+    const date = d.data().deliveryDate;
+    if (date) dates.add(date);
+  });
+
+  const sel = document.getElementById("workDateSelect");
+  sel.innerHTML = '<option value="">배부일을 선택하세요</option>';
+  Array.from(dates).sort().forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    // 날짜 포맷
+    const dt = new Date(d);
+    const month = dt.getMonth() + 1;
+    const day   = dt.getDate();
+    const weekDay = ["일","월","화","수","목","금","토"][dt.getDay()];
+    opt.textContent = `${month}월 ${day}일 (${weekDay})`;
+    sel.appendChild(opt);
+  });
+
+  // 드래그 정렬 초기화
+  initSortDrag();
+}
+
+function initSortDrag() {
+  const list = document.getElementById("sortOrderList");
+  if (!list) return;
+  let dragging = null;
+
+  list.querySelectorAll(".sort-item").forEach(item => {
+    item.addEventListener("dragstart", () => { dragging = item; item.style.opacity = "0.5"; });
+    item.addEventListener("dragend",   () => { dragging = null; item.style.opacity = "1"; list.querySelectorAll(".sort-item").forEach(i => i.classList.remove("drag-over")); });
+    item.addEventListener("dragover",  e => { e.preventDefault(); if (dragging && dragging !== item) item.classList.add("drag-over"); });
+    item.addEventListener("dragleave", () => item.classList.remove("drag-over"));
+    item.addEventListener("drop", e => {
+      e.preventDefault();
+      item.classList.remove("drag-over");
+      if (dragging && dragging !== item) {
+        const items = [...list.querySelectorAll(".sort-item")];
+        const fromIdx = items.indexOf(dragging);
+        const toIdx   = items.indexOf(item);
+        if (fromIdx < toIdx) item.after(dragging);
+        else item.before(dragging);
+      }
+    });
+  });
+}
+
+function getWeekLabel2(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const month = d.getMonth() + 1;
+  const week  = Math.ceil(d.getDate() / 7);
+  return `${month}월 ${week}주차`;
+}
+
+async function generateWorkList() {
+  const deliveryDate = document.getElementById("workDateSelect").value;
+  if (!deliveryDate) { toast("배부일을 선택해주세요"); return; }
+
+  toast("명단 생성 중...");
+
+  // 정렬 기준 순서 수집
+  const sortKeys = [...document.querySelectorAll("#sortOrderList .sort-item")].map(el => el.dataset.key);
+
+  // 해당 배부일 콘텐츠 조회
+  const [contSnap, stuSnap, subSnap] = await Promise.all([
+    db.collection("contents").where("deliveryDate","==",deliveryDate).orderBy("order").get(),
+    db.collection("students").get(),
+    db.collection("submissions").get(),
+  ]);
+
+  const deliveryContents = contSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  if (!deliveryContents.length) { toast("해당 배부일에 콘텐츠가 없습니다"); return; }
+
+  // 학생 맵
+  const studentMap = {};
+  stuSnap.docs.forEach(d => { studentMap[d.id] = { id: d.id, ...d.data() }; });
+
+  // submissions 맵
+  const subMap = {};
+  subSnap.docs.forEach(d => { subMap[d.data().studentId] = d.data(); });
+
+  // 배부 콘텐츠의 시리즈 목록
+  const deliverySeries = [...new Set(deliveryContents.map(c => getSeriesName(c.name)))];
+
+  // 전체 학생 목록 구성
+  const allStudents = Object.values(studentMap).map(stu => {
+    const sub = subMap[stu.id] || {};
+    const selections = sub.selections || {};
+
+    // 해당 배부일 시리즈별 신청 여부
+    const contentCells = {};
+    deliverySeries.forEach(series => {
+      // 해당 시리즈의 배부일 콘텐츠 이름들
+      const seriesContents = deliveryContents.filter(c => getSeriesName(c.name) === series);
+      const val = selections[series];
+      const isCancel = val === "취소" || val === "환불";
+
+      if (isCancel || seriesContents.length === 0) {
+        contentCells[series] = "";
+      } else {
+        contentCells[series] = seriesContents.map(c => c.name).join(", ");
+      }
+    });
+
+    // 과학탐구 구성
+    const sub1 = stu.subject1 || "";
+    const sub2 = stu.subject2 || "";
+    const sciStr = [sub1, sub2].filter(Boolean).join("");
+
+    // 독서실 분류
+    const seatCat = getSeatCategory(stu.seat || "");
+
+    // 신청 콘텐츠 수
+    const appliedCount = Object.values(contentCells).filter(v => v !== "").length;
+
+    return {
+      ...stu,
+      seatCat,
+      sciStr,
+      contentCells,
+      appliedCount,
+      totalSeries: deliverySeries.length,
+    };
+  }).filter(stu => stu.id); // 학번 있는 학생만
+
+  // 정렬 함수
+  function sortStudents(students) {
+    return students.sort((a, b) => {
+      for (const key of sortKeys) {
+        let va, vb;
+        if (key === "seat")         { va = a.seatCat || ""; vb = b.seatCat || ""; }
+        else if (key === "group")   { va = a.group || ""; vb = b.group || ""; }
+        else if (key === "koreanChoice") { va = a.koreanChoice || ""; vb = b.koreanChoice || ""; }
+        else if (key === "mathChoice")   { va = a.mathChoice || ""; vb = b.mathChoice || ""; }
+        else if (key === "subject") { va = a.sciStr || ""; vb = b.sciStr || ""; }
+        else if (key === "name")    { va = a.name || ""; vb = b.name || ""; }
+        else { va = ""; vb = ""; }
+        if (va < vb) return -1;
+        if (va > vb) return 1;
+      }
+      return 0;
+    });
+  }
+
+  // 시트 분류
+  const fullBuyers   = sortStudents(allStudents.filter(s => s.appliedCount === s.totalSeries && s.totalSeries > 0));
+  const partialBuyers= sortStudents(allStudents.filter(s => s.appliedCount > 0 && s.appliedCount < s.totalSeries));
+  const noBuyers     = sortStudents(allStudents.filter(s => s.appliedCount === 0));
+
+  // 엑셀 생성
+  const wb = XLSX.utils.book_new();
+  const weekLabel = getWeekLabel2(deliveryDate);
+
+  // 날짜 포맷
+  const dt = new Date(deliveryDate);
+  const dateLabel = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
+
+  // 헤더 생성
+  const baseHeaders = ["주차","연번","독서실","그룹","학번","이름","국어선택","수학선택","탐구선택"];
+  const contentHeaders = deliverySeries.map((_, i) => `상품명${i+1}`);
+  const headers = [...baseHeaders, ...contentHeaders];
+
+  function makeRows(students) {
+    return students.map((stu, idx) => {
+      const base = [
+        weekLabel,
+        idx + 1,
+        stu.seatCat,
+        stu.group || "",
+        stu.id,
+        stu.name || "",
+        stu.koreanChoice || "",
+        stu.mathChoice || "",
+        stu.sciStr,
+      ];
+      const contents = deliverySeries.map(series => stu.contentCells[series] || "");
+      return [...base, ...contents];
+    });
+  }
+
+  function addSheet(name, students) {
+    const rows = makeRows(students);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+    // 열 너비
+    ws["!cols"] = [
+      {wch:10},{wch:6},{wch:8},{wch:6},{wch:8},{wch:10},{wch:10},{wch:10},{wch:16},
+      ...contentHeaders.map(() => ({wch:22}))
+    ];
+
+    // 헤더 스타일 (배경색)
+    const range = XLSX.utils.decode_range(ws["!ref"]);
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({r:0, c})];
+      if (cell) {
+        cell.s = {
+          fill: { fgColor: { rgb: "2BADA0" } },
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          alignment: { horizontal: "center" }
+        };
+      }
+    }
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
+
+  addSheet("콘텐츠 전체 구매", fullBuyers);
+  addSheet("콘텐츠 일부 구매", partialBuyers);
+  addSheet("콘텐츠 없음(명단X)", noBuyers);
+
+  XLSX.writeFile(wb, `위클리팩_작업명단_${dateLabel}_의대관_${today()}.xlsx`);
+  toast("✓ 엑셀 생성 완료!");
+}
+
 </script>
 </body>
 </html>
