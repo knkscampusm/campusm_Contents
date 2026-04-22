@@ -3308,8 +3308,8 @@ async function generateWorkList() {
 
   // 전체 학생 목록 구성 (배부일 기준 등원일 이후 학생만)
   const allStudents = Object.values(studentMap).filter(stu => {
-    const enroll = stu.enrollDate || "";
-    if (!enroll) return true; // 등원일 없으면 포함
+    const enroll = (stu.enrollDate || "").trim();
+    if (!enroll) return false; // 등원일 없으면 퇴원생으로 간주 → 제외
     return enroll <= deliveryDate; // 등원일이 배부일 이전이어야 포함
   }).map(stu => {
     const sub = subMap[stu.id] || {};
