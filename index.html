@@ -446,12 +446,19 @@
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.875rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;flex-wrap:wrap;">
         <span style="font-size:12px;color:#aaa;font-weight:500;flex-shrink:0;">콘텐츠 배부 월:</span>
-        <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0;"></div>
-        <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
-          <input type="text" id="changeSearchInput" placeholder="학번 검색" maxlength="20" autocomplete="off"
-            style="padding:4px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fafafa;outline:none;width:110px;"
-            oninput="searchChangeCard(this.value)" />
+        <div style="position:relative;flex:1;min-width:0;">
+          <button id="monthDropdownBtn" onclick="toggleMonthDropdown()"
+            style="padding:4px 12px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+            <span id="monthDropdownLabel">전체</span>
+            <span style="color:#aaa;font-size:11px;">▼</span>
+          </button>
+          <div id="monthDropdownPanel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:100;background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,0.1);min-width:180px;">
+            <div id="monthFilters" style="display:flex;flex-direction:column;gap:6px;"></div>
+          </div>
         </div>
+        <input type="text" id="changeSearchInput" placeholder="학번 검색" maxlength="20" autocomplete="off"
+          style="padding:4px 10px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fafafa;outline:none;width:110px;flex-shrink:0;"
+          oninput="searchChangeCard(this.value)" />
       </div>
 
       <div id="changeList" style="max-height:75vh;overflow-y:auto;"><div class="empty">데이터를 불러오는 중...</div></div>
@@ -2168,6 +2175,40 @@ function renderHistoryTable() {
 
 let _showOnlyUnprocessed = false;
 
+function toggleMonthDropdown() {
+  const panel = document.getElementById("monthDropdownPanel");
+  const btn   = document.getElementById("monthDropdownBtn");
+  const isOpen = panel.style.display !== "none";
+  panel.style.display = isOpen ? "none" : "";
+  // 외부 클릭 시 닫기
+  if (!isOpen) {
+    setTimeout(() => {
+      document.addEventListener("click", function handler(e) {
+        if (!btn.contains(e.target) && !panel.contains(e.target)) {
+          panel.style.display = "none";
+          document.removeEventListener("click", handler);
+        }
+      });
+    }, 0);
+  }
+}
+
+function updateMonthDropdownLabel() {
+  const checks = document.querySelectorAll("#monthFilters input[data-month]");
+  const checked = Array.from(checks).filter(c => c.checked);
+  const allCheck = document.getElementById("monthAllCheck");
+  const labelEl  = document.getElementById("monthDropdownLabel");
+  if (!labelEl) return;
+  if (allCheck?.checked || checked.length === checks.length) {
+    labelEl.textContent = "전체";
+  } else if (checked.length === 0) {
+    labelEl.textContent = "선택 없음";
+  } else {
+    const monthNames2 = {"01":"1월","02":"2월","03":"3월","04":"4월","05":"5월","06":"6월","07":"7월","08":"8월","09":"9월","10":"10월","11":"11월","12":"12월"};
+    labelEl.textContent = checked.map(c => monthNames2[c.dataset.month?.slice(5,7)] || c.dataset.month).join(", ");
+  }
+}
+
 function onPeriodFilterChange(val) {
   // 라디오 버튼 스타일 업데이트
   const l1m = document.getElementById("periodLabel1m");
@@ -2245,6 +2286,7 @@ async function onAllMonthToggle(checked) {
   // Firestore 저장
   const visibleMonths = Array.from(allCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.month);
   await db.collection("settings").doc("monthFilter").set({ visibleMonths });
+  updateMonthDropdownLabel();
 }
 
 async function onMonthToggle(ym, checked) {
@@ -2283,6 +2325,7 @@ async function onMonthToggle(ym, checked) {
     const lbl = allCb.closest("label");
     if (lbl) { lbl.style.borderColor = isAll?"#ED0081":"#e0e0e0"; lbl.style.background = isAll?"#fdf0f7":"#fff"; }
   }
+  updateMonthDropdownLabel();
 }
 
 async function loadChanges() {
@@ -2515,18 +2558,20 @@ async function loadChanges() {
   const mfEl = document.getElementById("monthFilters");
   if (mfEl) {
     const allChecked = sortedMonths.every(m => visibleMonths.has(m));
-    const allLabel = `<label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#555;cursor:pointer;padding:3px 6px;border:1px solid ${allChecked?"#ED0081":"#e0e0e0"};border-radius:16px;background:${allChecked?"#fdf0f7":"#fff"};font-weight:700;">
+    const allLabel = `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer;padding:4px 2px;font-weight:700;">
       <input type="checkbox" id="monthAllCheck" ${allChecked?"checked":""} style="accent-color:#ED0081;width:14px;height:14px;"
         onchange="onAllMonthToggle(this.checked)"> 전체
-    </label>`;
+    </label>
+    <div style="height:1px;background:#f0f0ee;margin:4px 0;"></div>`;
     mfEl.innerHTML = allLabel + sortedMonths.map(m => {
       const label   = monthNames[m.slice(5,7)] || m;
       const checked = visibleMonths.has(m);
-      return `<label style="display:flex;align-items:center;gap:5px;font-size:13px;color:#555;cursor:pointer;padding:3px 6px;border:1px solid ${checked?"#ED0081":"#e0e0e0"};border-radius:16px;background:${checked?"#fdf0f7":"#fff"};">
+      return `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer;padding:4px 2px;">
         <input type="checkbox" data-month="${m}" ${checked?"checked":""} style="accent-color:#ED0081;width:14px;height:14px;"
           onchange="onMonthToggle('${m}',this.checked)"> ${label}
       </label>`;
     }).join("");
+    updateMonthDropdownLabel();
   }
 
   el.innerHTML = changed.map(s => {
@@ -2678,7 +2723,7 @@ async function loadChanges() {
           ? s._mergedPeriods.filter(p => p !== "기준일 미설정").sort()[0] || s.cutoffDate
           : s.cutoffDate;
         contents
-          .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate > effectiveCutoff)
+          .filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate >= effectiveCutoff)
           .sort((a,b) => a.order - b.order)
           .forEach(item => {
             const ym = item.deliveryDate.slice(0,7);
