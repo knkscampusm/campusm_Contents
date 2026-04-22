@@ -2386,8 +2386,24 @@ async function loadChanges() {
   });
   const sortedMonths = Array.from(allMonths).sort();
 
-  const savedMonths   = monthDoc.exists ? (monthDoc.data().visibleMonths || null) : null;
-  const visibleMonths = new Set(savedMonths || sortedMonths);
+  // 날짜 기준 디폴트 월 계산
+  const _today = new Date();
+  const _todayDay = _today.getDate();
+  const _thisMonth = `${_today.getFullYear()}-${String(_today.getMonth()+1).padStart(2,"0")}`;
+  const _nextMonth = (() => {
+    const d = new Date(_today.getFullYear(), _today.getMonth()+1, 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  })();
+  const _defaultMonths = new Set(
+    _todayDay > 15
+      ? sortedMonths.filter(m => m === _thisMonth || m === _nextMonth)
+      : sortedMonths.filter(m => m === _thisMonth)
+  );
+  // 디폴트에 해당 월이 없으면 전체 표시
+  if (_defaultMonths.size === 0) sortedMonths.forEach(m => _defaultMonths.add(m));
+
+  const savedMonths = monthDoc.exists ? (monthDoc.data().visibleMonths || null) : null;
+  const visibleMonths = new Set(savedMonths || _defaultMonths);
 
   const mfEl = document.getElementById("monthFilters");
   if (mfEl) {
