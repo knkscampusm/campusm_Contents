@@ -2529,7 +2529,7 @@ async function loadChanges() {
     periods.forEach(p => {
       if (!p || p === "기준일 미설정") return;
       contents.forEach(item => {
-        if (item.deliveryDate && item.deliveryDate > p)
+        if (item.deliveryDate && item.deliveryDate >= p)
           allMonths.add(item.deliveryDate.slice(0, 7));
       });
     });
