@@ -1475,10 +1475,40 @@ async function doSubmit() {
       cutoffDate: refundCutoff || null,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    // ── 최초 배부시점 체크 ──
+    // 변경된 시리즈들의 최초 배부일 조회
+    const contentsSnap = await db.collection("contents").orderBy("order").get();
+    const allContents  = contentsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const now1m = new Date(); now1m.setMonth(now1m.getMonth() + 1); // 지금으로부터 1달 후
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    // 각 시리즈별 cutoffDate 이후 첫 배부일 구하기
+    const seriesFirstDates = {};
+    Object.keys(touchedSelections).forEach(series => {
+      const firstItem = allContents
+        .filter(c => getSeriesName(c.name) === series && c.deliveryDate && refundCutoff && c.deliveryDate >= refundCutoff)
+        .sort((a,b) => a.order - b.order)[0];
+      seriesFirstDates[series] = firstItem ? new Date(firstItem.deliveryDate) : null;
+    });
+
+    // 모든 시리즈의 최초 배부일이 오늘로부터 1달 이상 미래인지 확인
+    const seriesDates = Object.values(seriesFirstDates).filter(Boolean);
+    const allFuture = seriesDates.length > 0 && seriesDates.every(d => d > now1m);
+
+    // 자동 처리완료 여부
+    const period = refundCutoff || "기준일 미설정";
+    const nowStr = new Date().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+    if (allFuture) {
+      submitData.processedByPeriod   = { [period]: true };
+      submitData.processedAtByPeriod = { [period]: "최초 배부시점 아님" };
+      submitData.processedByStaff    = { [period]: "최초 배부시점 아님" };
+    }
+
     await db.collection("submissionHistory").add(submitData);
 
-    // 잔디 웹훅 알림
+    // 잔디 웹훅 알림 (자동 처리완료면 발송 안 함)
     try {
+      if (allFuture) throw new Error("skip"); // 웹훅 스킵
       const applyList  = Object.entries(touchedSelections).filter(([,v]) => v !== "취소" && v !== "환불").map(([s]) => s);
       const cancelList = Object.entries(touchedSelections).filter(([,v]) => v === "취소" || v === "환불").map(([s]) => s);
       const lines = [];
@@ -1500,7 +1530,7 @@ async function doSubmit() {
       const txt = await res.text();
       console.log("잔디 웹훅 응답:", txt);
     } catch(e) {
-      console.warn("잔디 웹훅 실패:", e.message);
+      if (e.message !== "skip") console.warn("잔디 웹훅 실패:", e.message);
     }
 
     closeConfirmModal();
