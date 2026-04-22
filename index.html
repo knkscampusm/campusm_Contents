@@ -2238,12 +2238,6 @@ function toggleFilter() {
   const rAll = document.querySelector('input[name="periodFilter"][value="all"]');
   if (_showOnlyUnprocessed) {
     if (rAll) { rAll.checked = true; onPeriodFilterChange("all"); }
-    // 전체 월 체크
-    const allMonthCbs = document.querySelectorAll("#monthFilters input[data-month]");
-    allMonthCbs.forEach(cb => { cb.checked = true; });
-    const allCheck = document.getElementById("monthAllCheck");
-    if (allCheck) allCheck.checked = true;
-    updateMonthDropdownLabel();
   } else {
     if (r1m)  { r1m.checked  = true; onPeriodFilterChange("1m"); }
   }
@@ -2558,10 +2552,8 @@ async function loadChanges() {
   // 디폴트에 해당 월이 없으면 전체 표시
   if (_defaultMonths.size === 0) sortedMonths.forEach(m => _defaultMonths.add(m));
 
-  // 미처리만 보기 켜면 전체 월, 아니면 날짜 기준 디폴트
-  const visibleMonths = _showOnlyUnprocessed
-    ? new Set(sortedMonths)
-    : new Set(_defaultMonths);
+  // 저장값 무시, 항상 날짜 기준 디폴트 적용
+  const visibleMonths = new Set(_defaultMonths);
 
   const mfEl = document.getElementById("monthFilters");
   if (mfEl) {
