@@ -2558,8 +2558,10 @@ async function loadChanges() {
   // 디폴트에 해당 월이 없으면 전체 표시
   if (_defaultMonths.size === 0) sortedMonths.forEach(m => _defaultMonths.add(m));
 
-  // 저장값 무시, 항상 날짜 기준 디폴트 적용
-  const visibleMonths = new Set(_defaultMonths);
+  // 미처리만 보기 켜면 전체 월, 아니면 날짜 기준 디폴트
+  const visibleMonths = _showOnlyUnprocessed
+    ? new Set(sortedMonths)
+    : new Set(_defaultMonths);
 
   const mfEl = document.getElementById("monthFilters");
   if (mfEl) {
