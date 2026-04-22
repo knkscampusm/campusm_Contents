@@ -1184,7 +1184,11 @@ function renderNotice() {
   });
 
   const catGroups = {};
+  // 학생 화면에서 숨길 시리즈
+  const HIDDEN_SERIES = new Set(["한수위 모의고사"]);
+
   allSeriesMap.forEach(({ firstRefundable, hasAnyItem }, series) => {
+    if (HIDDEN_SERIES.has(series)) return; // 숨김 처리
     const cat = seriesCategory.get(series) || "기타";
     if (!catGroups[cat]) catGroups[cat] = [];
     catGroups[cat].push({ series, firstRefundable, hasAnyItem });
