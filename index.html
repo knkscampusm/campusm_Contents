@@ -468,8 +468,6 @@
     </div>
   </div>
 
-</div>
-
   <!-- 작업 명단 -->
   <div id="tab3" class="tab-pane">
     <div class="card">
@@ -481,6 +479,7 @@
         <select id="workDateSelect" style="padding:8px 12px;font-size:13px;border:1px solid #ddd;border-radius:8px;background:#fafafa;outline:none;width:100%;max-width:240px;">
           <option value="">배부일을 선택하세요</option>
         </select>
+        <div id="workDatePreview" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;"></div>
       </div>
 
       <!-- 정렬 기준 -->
@@ -499,6 +498,8 @@
       <button class="btn btn-primary" onclick="generateWorkList()" style="padding:10px 24px;">📥 엑셀 생성</button>
     </div>
   </div>
+
+</div>
 
 <!-- 기준일 설정 모달 -->
 <div id="cutoffModal" class="overlay">
@@ -3161,10 +3162,10 @@ async function loadWorkListTab() {
 
   const sel = document.getElementById("workDateSelect");
   sel.innerHTML = '<option value="">배부일을 선택하세요</option>';
-  Array.from(dates).sort().forEach(d => {
+  const todayStr = new Date().toISOString().slice(0,10);
+  Array.from(dates).sort().filter(d => d >= todayStr).forEach(d => {
     const opt = document.createElement("option");
     opt.value = d;
-    // 날짜 포맷
     const dt = new Date(d);
     const month = dt.getMonth() + 1;
     const day   = dt.getDate();
@@ -3172,6 +3173,22 @@ async function loadWorkListTab() {
     opt.textContent = `${month}월 ${day}일 (${weekDay})`;
     sel.appendChild(opt);
   });
+
+  // 배부일 선택 시 콘텐츠 목록 표시
+  sel.onchange = async function() {
+    const date = this.value;
+    const previewEl = document.getElementById("workDatePreview");
+    if (!date) { previewEl.innerHTML = ""; return; }
+    previewEl.innerHTML = '<div style="color:#aaa;font-size:13px;">불러오는 중...</div>';
+    const snap = await db.collection("contents").where("deliveryDate","==",date).orderBy("order").get();
+    const items = snap.docs.map(d => d.data());
+    if (!items.length) { previewEl.innerHTML = '<div style="color:#aaa;font-size:13px;">해당 배부일에 콘텐츠가 없습니다</div>'; return; }
+    const catColors = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
+    previewEl.innerHTML = items.map(c => {
+      const color = catColors[c.category] || "#888";
+      return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;background:${color}18;border:1px solid ${color}40;font-size:12px;color:${color};font-weight:600;margin:2px;">${c.name}</span>`;
+    }).join("");
+  };
 
   // 드래그 정렬 초기화
   initSortDrag();
