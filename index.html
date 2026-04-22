@@ -435,6 +435,15 @@
         </div>
         <button id="filterBtn" onclick="toggleFilter()" style="font-size:12px;padding:6px 14px;border-radius:20px;border:1.5px solid #ED0081;background:#fff;color:#ED0081;cursor:pointer;font-weight:600;">미처리만 보기</button>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:#aaa;font-weight:500;">기간:</span>
+        <label id="periodLabel1m" style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:3px 10px;border-radius:16px;border:1.5px solid #ED0081;background:#fdf0f7;color:#ED0081;font-weight:600;">
+          <input type="radio" name="periodFilter" value="1m" checked onchange="onPeriodFilterChange(this.value)" style="accent-color:#ED0081;">최근 1개월
+        </label>
+        <label id="periodLabelAll" style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:3px 10px;border-radius:16px;border:1.5px solid #ddd;background:#fff;color:#555;">
+          <input type="radio" name="periodFilter" value="all" onchange="onPeriodFilterChange(this.value)" style="accent-color:#ED0081;">전체 기간
+        </label>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:0.875rem;padding-bottom:0.75rem;border-bottom:1px solid #f0f0ee;flex-wrap:wrap;">
         <div id="monthFilters" style="display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0;"></div>
         <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;">
@@ -1799,11 +1808,38 @@ async function bulkUpdateDate() {
   if (!date) { toast("날짜를 먼저 선택해주세요"); return; }
   const checked = document.querySelectorAll(".content-check:checked");
   if (!checked.length) { toast("콘텐츠를 먼저 선택해주세요"); return; }
+
+  // 선택된 콘텐츠 이름 목록 수집
+  const names = [];
+  checked.forEach(cb => {
+    const row = cb.closest("div[style]");
+    const nameEl = row ? row.querySelector("div[onclick]") : null;
+    if (nameEl) names.push(nameEl.textContent.trim());
+  });
+  const preview = names.slice(0, 5).join(", ") + (names.length > 5 ? ` 외 ${names.length - 5}개` : "");
+
+  if (!confirm(`📅 배부일을 ${date} 로 수정합니다.\n\n대상 ${checked.length}개:\n${preview}\n\n계속하시겠습니까?`)) return;
+
   const batch = db.batch();
   checked.forEach(cb => {
     batch.update(db.collection("contents").doc(cb.dataset.id), { deliveryDate: date });
   });
   await batch.commit();
+
+  // 수정 이력 저장
+  const now = new Date().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+  for (const cb of checked) {
+    const prev = await db.collection("contents").doc(cb.dataset.id).get();
+    const contentName = prev.exists ? (prev.data().name || "") : "";
+    const oldDate = prev.exists ? (prev.data().deliveryDate || "") : "";
+    await db.collection("contentLogs").add({
+      contentId: cb.dataset.id, contentName,
+      oldDate, newDate: date,
+      changedBy: _currentStaff || "알 수 없음",
+      changedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+
   toast(`✓ ${checked.length}개 배부일 수정 완료`);
   loadAdminContents();
 }
@@ -2101,6 +2137,23 @@ function renderHistoryTable() {
 
 let _showOnlyUnprocessed = false;
 
+function onPeriodFilterChange(val) {
+  // 라디오 버튼 스타일 업데이트
+  const l1m = document.getElementById("periodLabel1m");
+  const lAll = document.getElementById("periodLabelAll");
+  if (l1m) {
+    l1m.style.borderColor = val === "1m" ? "#ED0081" : "#ddd";
+    l1m.style.background  = val === "1m" ? "#fdf0f7" : "#fff";
+    l1m.style.color       = val === "1m" ? "#ED0081" : "#555";
+  }
+  if (lAll) {
+    lAll.style.borderColor = val === "all" ? "#ED0081" : "#ddd";
+    lAll.style.background  = val === "all" ? "#fdf0f7" : "#fff";
+    lAll.style.color       = val === "all" ? "#ED0081" : "#555";
+  }
+  loadChanges();
+}
+
 function toggleFilter() {
   _showOnlyUnprocessed = !_showOnlyUnprocessed;
   const btn = document.getElementById("filterBtn");
@@ -2215,10 +2268,24 @@ async function loadChanges() {
     }
   });
 
+  // ── 기간 필터 적용 (미처리만 보기 모드에서는 기간 무시) ──
+  const periodFilter = document.querySelector('input[name="periodFilter"]:checked')?.value || "1m";
+  const _1mAgo = new Date(); _1mAgo.setMonth(_1mAgo.getMonth() - 1); _1mAgo.setHours(0,0,0,0);
+
   // ── 학생+기준일 단위로 그룹핑 후 최신 선택값으로 합산 ──
   const rawDocs = sSnap.docs
     .map(d => ({ docId: d.id, ...d.data() }))
-    .filter(s => s.selections && Object.keys(s.selections).length > 0)
+    .filter(s => {
+      if (!s.selections || Object.keys(s.selections).length === 0) return false;
+      // 미처리만 보기 모드에서는 기간 필터 무시
+      if (_showOnlyUnprocessed) return true;
+      // 기간 필터 적용
+      if (periodFilter === "1m") {
+        const t = s.updatedAt?.toDate ? s.updatedAt.toDate() : null;
+        return t && t >= _1mAgo;
+      }
+      return true;
+    })
     .sort((a, b) => {
       // updatedAt 오름차순 (오래된 것 먼저 → 나중 것이 덮어씀)
       const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
