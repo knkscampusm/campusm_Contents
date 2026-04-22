@@ -438,7 +438,7 @@
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
         <span style="font-size:12px;color:#aaa;font-weight:500;">기간:</span>
         <label id="periodLabel1m" style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:3px 10px;border-radius:16px;border:1.5px solid #ED0081;background:#fdf0f7;color:#ED0081;font-weight:600;">
-          <input type="radio" name="periodFilter" value="1m" checked onchange="onPeriodFilterChange(this.value)" style="accent-color:#ED0081;">최근 2개월
+          <input type="radio" name="periodFilter" value="1m" checked onchange="onPeriodFilterChange(this.value)" style="accent-color:#ED0081;">최근 1개월
         </label>
         <label id="periodLabelAll" style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:3px 10px;border-radius:16px;border:1.5px solid #ddd;background:#fff;color:#555;">
           <input type="radio" name="periodFilter" value="all" onchange="onPeriodFilterChange(this.value)" style="accent-color:#ED0081;">전체 기간
@@ -2300,7 +2300,7 @@ async function loadChanges() {
 
   // ── 기간 필터 적용 (미처리만 보기 모드에서는 기간 무시) ──
   const periodFilter = document.querySelector('input[name="periodFilter"]:checked')?.value || "1m";
-  const _1mAgo = new Date(); _1mAgo.setMonth(_1mAgo.getMonth() - 2); _1mAgo.setHours(0,0,0,0);
+  const _1mAgo = new Date(); _1mAgo.setMonth(_1mAgo.getMonth() - 1); _1mAgo.setHours(0,0,0,0);
 
   // ── 학생+기준일 단위로 그룹핑 후 최신 선택값으로 합산 ──
   const rawDocs = sSnap.docs
