@@ -3235,59 +3235,6 @@ document.addEventListener("keydown", e => {
 // ──────────────────────────────────────────
 // 기하 선택자 관리
 // ──────────────────────────────────────────
-
-let _geometryStudents = new Set(); // 학번 Set
-
-async function openGeometryModal() {
-  document.getElementById("geometryModal").classList.add("open");
-  await loadGeometryStudents();
-}
-
-async function loadGeometryStudents() {
-  const doc = await db.collection("settings").doc("geometryStudents").get();
-  const list = doc.exists ? (doc.data().studentIds || []) : [];
-  _geometryStudents = new Set(list);
-  renderGeometryList(list);
-}
-
-function renderGeometryList(list) {
-  const el = document.getElementById("geometryList");
-  if (!list.length) {
-    el.innerHTML = '<div style="color:#ccc;font-size:13px;text-align:center;padding:12px;">등록된 학생이 없습니다</div>';
-    return;
-  }
-  el.innerHTML = list.map(sid => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#f8f8f6;border-radius:8px;">
-      <span style="font-size:13px;font-weight:600;color:#555;">${sid}</span>
-      <button onclick="removeGeometryStudent('${sid}')"
-        style="font-size:12px;padding:2px 10px;border-radius:12px;border:1px solid #e5534b;background:#fff;color:#e5534b;cursor:pointer;">삭제</button>
-    </div>`).join("");
-}
-
-async function addGeometryStudent() {
-  const sid = document.getElementById("geometryInput").value.trim();
-  if (!sid) return;
-  _geometryStudents.add(sid);
-  await saveGeometryStudents();
-  document.getElementById("geometryInput").value = "";
-}
-
-async function removeGeometryStudent(sid) {
-  _geometryStudents.delete(sid);
-  await saveGeometryStudents();
-}
-
-async function saveGeometryStudents() {
-  const list = Array.from(_geometryStudents);
-  await db.collection("settings").doc("geometryStudents").set({ studentIds: list });
-  renderGeometryList(list);
-  toast(`기하 선택자 ${list.length}명 저장됨`);
-}
-
-
-// ──────────────────────────────────────────
-// 기하 선택자 관리
-// ──────────────────────────────────────────
 let _geometryStudents = new Map(); // studentId → { name, originalMath }
 
 async function openGeometryModal() {
