@@ -3210,27 +3210,65 @@ async function loadContentStats() {
     if (!seenSeries.has(s)) { seenSeries.add(s); seriesList.push(s); }
   });
 
+  // 학생 맵 (빠른 조회)
+  const stuMap = {};
+  stuSnap.docs.forEach(d => { stuMap[d.id] = d.data(); });
+
   // submissions 기준 신청/취소 집계
   const seriesStats = {}; // series → { apply, cancel }
   seriesList.forEach(s => { seriesStats[s] = { apply: 0, cancel: 0 }; });
+
+  // 선택과목별 세분화 집계
+  // CRUX 국어: koreanChoice별
+  const koChoiceStats = { "언어와매체": {apply:0,cancel:0}, "화법과작문": {apply:0,cancel:0} };
+  // CRUX 수학, CONNEX 수학: mathChoice별
+  const maChoiceStats = { "미적분": {apply:0,cancel:0}, "확률과통계": {apply:0,cancel:0} };
+  // 과학: subject별
+  const sciSeriesStats = {
+    "CRUX 과학Ⅰ":  { "물리학Ⅰ":{apply:0,cancel:0}, "화학Ⅰ":{apply:0,cancel:0}, "생명과학Ⅰ":{apply:0,cancel:0}, "지구과학Ⅰ":{apply:0,cancel:0} },
+    "CRUX 과학Ⅱ":  { "물리학Ⅱ":{apply:0,cancel:0}, "화학Ⅱ":{apply:0,cancel:0}, "생명과학Ⅱ":{apply:0,cancel:0}, "지구과학Ⅱ":{apply:0,cancel:0} },
+    "CIRCUIT 과학Ⅰ":{ "물리학Ⅰ":{apply:0,cancel:0}, "화학Ⅰ":{apply:0,cancel:0}, "생명과학Ⅰ":{apply:0,cancel:0}, "지구과학Ⅰ":{apply:0,cancel:0} },
+  };
+
+  function addStat(stat, isCancel) {
+    if (isCancel) stat.cancel++; else stat.apply++;
+  }
 
   // submissions 있는 학생 집계
   const subStudentIds = new Set();
   subSnap.docs.forEach(d => {
     const data = d.data();
     const sid = data.studentId;
-    const stuData = stuSnap.docs.find(s => s.id === sid)?.data() || {};
+    const stuData = stuMap[sid] || {};
     const enroll = (stuData.enrollDate || "").trim();
-    if (!enroll || enroll > today) return; // 미입소/퇴원생 제외
+    if (!enroll || enroll > today) return;
 
     subStudentIds.add(sid);
     const selections = data.selections || {};
+    const koChoice  = stuData.koreanChoice || "";
+    const maChoice  = stuData.mathChoice   || "";
+    const sub1      = stuData.subject1     || "";
+    const sub2      = stuData.subject2     || "";
+
     seriesList.forEach(series => {
       const val = selections[series];
-      if (!val || val !== "취소" && val !== "환불") {
-        seriesStats[series].apply++;
-      } else {
-        seriesStats[series].cancel++;
+      const isCancel = val === "취소" || val === "환불";
+      if (!val || !isCancel) seriesStats[series].apply++;
+      else seriesStats[series].cancel++;
+
+      // 선택과목별 세분화
+      if (series === "CRUX 국어") {
+        const ko = koChoice || "언어와매체";
+        if (koChoiceStats[ko]) addStat(koChoiceStats[ko], isCancel);
+      }
+      if (series === "CRUX 수학" || series === "CONNEX 수학") {
+        const ma = maChoice || "미적분";
+        if (maChoiceStats[ma]) addStat(maChoiceStats[ma], isCancel);
+      }
+      if (sciSeriesStats[series]) {
+        [sub1, sub2].forEach(sub => {
+          if (sub && sciSeriesStats[series][sub]) addStat(sciSeriesStats[series][sub], isCancel);
+        });
       }
     });
   });
@@ -3238,11 +3276,29 @@ async function loadContentStats() {
   // submissions 없는 입소 학생 → 전체 시리즈 신청으로 간주
   stuSnap.docs.forEach(d => {
     const sid = d.id;
-    const enroll = (d.data().enrollDate || "").trim();
-    if (!enroll || enroll > today) return; // 미입소/퇴원생 제외
-    if (subStudentIds.has(sid)) return; // 이미 집계됨
+    const stuData = d.data();
+    const enroll = (stuData.enrollDate || "").trim();
+    if (!enroll || enroll > today) return;
+    if (subStudentIds.has(sid)) return;
+
+    const koChoice = stuData.koreanChoice || "언어와매체";
+    const maChoice = stuData.mathChoice   || "미적분";
+    const sub1     = stuData.subject1     || "";
+    const sub2     = stuData.subject2     || "";
+
     seriesList.forEach(series => {
       seriesStats[series].apply++;
+      if (series === "CRUX 국어") {
+        if (koChoiceStats[koChoice]) koChoiceStats[koChoice].apply++;
+      }
+      if (series === "CRUX 수학" || series === "CONNEX 수학") {
+        if (maChoiceStats[maChoice]) maChoiceStats[maChoice].apply++;
+      }
+      if (sciSeriesStats[series]) {
+        [sub1, sub2].forEach(sub => {
+          if (sub && sciSeriesStats[series][sub]) sciSeriesStats[series][sub].apply++;
+        });
+      }
     });
   });
 
@@ -3257,14 +3313,39 @@ async function loadContentStats() {
   const catColors = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
   const catOrder  = ["국어","수학","영어","과학탐구"];
 
+  function renderSubStats(subMap, showTotal) {
+    return Object.entries(subMap).map(([label, st]) =>
+      `<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#888;padding:1px 0;">
+        <span style="min-width:64px;">${label}</span>
+        <span style="color:#2BADA0;min-width:52px;">신청 ${st.apply}명</span>
+        <span style="color:#e5534b;">취소 ${st.cancel}명</span>
+      </div>`
+    ).join("");
+  }
+
   const statsRows = catOrder.filter(cat => catMap[cat]).map(cat => {
     const color = catColors[cat] || "#888";
     const rows = catMap[cat].map(series => {
       const st = seriesStats[series] || { apply: 0, cancel: 0 };
-      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f8f8f6;font-size:13px;">
-        <span style="color:#333;flex:1;">${series}</span>
-        <span style="color:#2BADA0;font-weight:600;min-width:60px;text-align:right;">신청 ${st.apply}명</span>
-        <span style="color:#e5534b;font-weight:600;min-width:60px;text-align:right;">취소 ${st.cancel}명</span>
+
+      // 선택과목별 세분화 표시
+      let subRows = "";
+      if (series === "CRUX 국어") {
+        const totalApply = st.apply, totalCancel = st.cancel;
+        subRows = `<div style="margin:4px 0 2px 8px;">${renderSubStats(koChoiceStats)}</div>`;
+      } else if (series === "CRUX 수학" || series === "CONNEX 수학") {
+        subRows = `<div style="margin:4px 0 2px 8px;">${renderSubStats(maChoiceStats)}</div>`;
+      } else if (sciSeriesStats[series]) {
+        subRows = `<div style="margin:4px 0 2px 8px;">${renderSubStats(sciSeriesStats[series])}</div>`;
+      }
+
+      return `<div style="padding:6px 0;border-bottom:1px solid #f8f8f6;">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;">
+          <span style="color:#333;font-weight:600;flex:1;">${series}</span>
+          <span style="color:#2BADA0;font-weight:600;min-width:60px;text-align:right;">신청 ${st.apply}명</span>
+          <span style="color:#e5534b;font-weight:600;min-width:60px;text-align:right;">취소 ${st.cancel}명</span>
+        </div>
+        ${subRows}
       </div>`;
     }).join("");
     return `<div style="margin-bottom:12px;">
