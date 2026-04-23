@@ -2151,6 +2151,16 @@ async function loadSubmissions() {
     return map;
   })();
 
+  // 시리즈별 전체 첫 회차 (cutoffDate 무관)
+  window._seriesFirstRound = (() => {
+    const map = {};
+    cols.sort((a,b)=>a.order-b.order).forEach(item => {
+      const s = getSeriesName(item.name);
+      if (!map[s]) map[s] = getFirstRound(item.name) + "부터";
+    });
+    return map;
+  })();
+
   renderHistoryTable();
 }
 
@@ -3089,8 +3099,11 @@ async function exportChangeHistory() {
       const val = mergedSel[series];
       const isCancel = val === "환불" || val === "취소";
       const label = isCancel ? "취소" : "신청";
-      const round = roundMapForRow[series] || "";
-      return round ? `${label} ${round}` : label;
+      // cutoffDate 기준 첫 회차, 없으면 시리즈 전체 첫 회차
+      const round = roundMapForRow[series]
+        || (window._seriesFirstRound || {})[series]
+        || "1회부터";
+      return `${label} ${round}`;
     });
     return [submittedAt, s.studentId, s.name, s.ban, s.group, s.paymentMethod||"-", ...seriesCells];
   });
