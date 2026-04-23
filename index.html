@@ -3099,10 +3099,11 @@ async function exportChangeHistory() {
       const val = mergedSel[series];
       const isCancel = val === "환불" || val === "취소";
       const label = isCancel ? "취소" : "신청";
-      // cutoffDate 기준 첫 회차, 없으면 시리즈 전체 첫 회차
-      const round = roundMapForRow[series]
-        || (window._seriesFirstRound || {})[series]
-        || "1회부터";
+      // 이력 있으면 cutoffDate 기준 회차, 이력 없으면(기본 신청) 전체 첫 회차
+      const hasVal = !!(mergedSel[series]);
+      const round = hasVal
+        ? (roundMapForRow[series] || (window._seriesFirstRound || {})[series] || "1회부터")
+        : ((window._seriesFirstRound || {})[series] || "1회부터");
       return `${label} ${round}`;
     });
     return [submittedAt, s.studentId, s.name, s.ban, s.group, s.paymentMethod||"-", ...seriesCells];
