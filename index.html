@@ -3214,6 +3214,8 @@ async function loadContentStats() {
   const seriesStats = {}; // series → { apply, cancel }
   seriesList.forEach(s => { seriesStats[s] = { apply: 0, cancel: 0 }; });
 
+  // submissions 있는 학생 집계
+  const subStudentIds = new Set();
   subSnap.docs.forEach(d => {
     const data = d.data();
     const sid = data.studentId;
@@ -3221,16 +3223,26 @@ async function loadContentStats() {
     const enroll = (stuData.enrollDate || "").trim();
     if (!enroll || enroll > today) return; // 미입소/퇴원생 제외
 
+    subStudentIds.add(sid);
     const selections = data.selections || {};
     seriesList.forEach(series => {
       const val = selections[series];
-      if (!val) {
+      if (!val || val !== "취소" && val !== "환불") {
         seriesStats[series].apply++;
-      } else if (val === "취소" || val === "환불") {
-        seriesStats[series].cancel++;
       } else {
-        seriesStats[series].apply++;
+        seriesStats[series].cancel++;
       }
+    });
+  });
+
+  // submissions 없는 입소 학생 → 전체 시리즈 신청으로 간주
+  stuSnap.docs.forEach(d => {
+    const sid = d.id;
+    const enroll = (d.data().enrollDate || "").trim();
+    if (!enroll || enroll > today) return; // 미입소/퇴원생 제외
+    if (subStudentIds.has(sid)) return; // 이미 집계됨
+    seriesList.forEach(series => {
+      seriesStats[series].apply++;
     });
   });
 
