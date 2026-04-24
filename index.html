@@ -1608,12 +1608,11 @@ async function doSubmit() {
       const lines = [];
       if (applyList.length)  lines.push(`[신청] ${applyList.join(", ")}`);
       if (cancelList.length) lines.push(`[취소] ${cancelList.join(", ")}`);
-      const adminUrl = "https://knkscampusm.github.io/campusm_Contents/#admin";
-      const applyStr  = applyList.length  ? `**[신청]** ${applyList.join(", ")}` : "";
-      const cancelStr = cancelList.length ? `**[취소]** ${cancelList.join(", ")}` : "";
+      const applyStr  = applyList.length  ? `[신청] ${applyList.join(", ")}` : "";
+      const cancelStr = cancelList.length ? `[취소] ${cancelList.join(", ")}` : "";
       const detailLines = [applyStr, cancelStr].filter(Boolean).join("\n");
       const body = {
-        body: `**${student.name}** (${student.ban}반 ${student.group}그룹 · ${student.id})\n${detailLines || "-"}\n➡️ 변경 처리로 이동: ${adminUrl}`,
+        body: `👤 ${student.name} (${student.ban}반 ${student.group} · ${student.id})\n${detailLines || "-"}\n📅 기준일: ${refundCutoff ? formatDateKR(refundCutoff) : "-"}`,
       };
       const res = await fetch("https://wh.jandi.com/connect-api/webhook/21903148/fbed84b1f9f693d8f2ff0ea78931b004", {
         method: "POST",
