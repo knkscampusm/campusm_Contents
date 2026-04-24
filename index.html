@@ -308,7 +308,7 @@
     <div style="font-size:22px;font-weight:800;color:#1a1a1a;letter-spacing:-0.3px;">위클리팩 신청 / 취소</div>
   </div>
 
-  <div class="card">
+  <div class="card" id="sidInputCard">
     <div style="font-size:13px;color:#888;font-weight:500;margin-bottom:8px;">학번 입력</div>
     <div class="row">
       <input type="password" id="sidInput" placeholder="학번을 입력하세요" maxlength="20" autocomplete="new-password" onfocus="this.type='text';this.inputMode='numeric';" style="flex:1;" />
@@ -1059,6 +1059,7 @@ async function lookupStudent() {
     if (student.subject1) { t1el.textContent = student.subject1; t1el.style.display = ""; } else t1el.style.display = "none";
     if (student.subject2) { t2el.textContent = student.subject2; t2el.style.display = ""; } else t2el.style.display = "none";
     document.getElementById("studentInfoCard").style.display = "";
+    document.getElementById("sidInputCard").style.display = "none";
     await loadContentsAndPrev();
     // 학번 카드 기준일 안내 업데이트
     const guideEl = document.getElementById("refundDateGuide");
@@ -1405,6 +1406,7 @@ function resetStudentView() {
   touchedSeries = new Set();
   document.getElementById("sidInput").value                = "";
   document.getElementById("studentInfoCard").style.display = "none";
+  document.getElementById("sidInputCard").style.display = "";
   document.getElementById("refundNotice").style.display    = "none";
   document.getElementById("contentsSection").style.display = "none";
   const guideEl2 = document.getElementById("refundDateGuide");
