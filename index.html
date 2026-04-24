@@ -310,6 +310,7 @@
 
   <div class="card" id="sidInputCard">
     <div style="padding:10px 12px;background:#e4f5f3;border-radius:10px;margin-bottom:12px;line-height:1.7;">
+      <div id="staticRefundGuide" style="font-size:13px;font-weight:700;color:#2BADA0;margin-bottom:4px;"></div>
       <div style="font-size:13px;color:#2BADA0;">위클리팩에 동봉되는 콘텐츠에 대한 신청/취소이며,<br>지난 회차에 대한 개별 구매의 경우, 수납처에 별도로 말씀해주셔야합니다.</div>
     </div>
     <div class="row">
@@ -3198,6 +3199,16 @@ function switchTab(idx) {
 }
 
 // Firebase Auth 대신 sessionStorage 기반으로 관리자 상태 복원
+// 페이지 로드 시 기준일 표시
+(async function loadStaticRefundGuide() {
+  const doc = await db.collection("settings").doc("refund").get();
+  const cutoff = doc.exists ? doc.data().cutoffDate : null;
+  const el = document.getElementById("staticRefundGuide");
+  if (el && cutoff) {
+    el.textContent = `${formatDateKR(cutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다`;
+  }
+})();
+
 (function checkStaffSession() {
   const savedStaff = sessionStorage.getItem("staffName") || "";
   if (savedStaff) {
