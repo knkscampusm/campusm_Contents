@@ -912,7 +912,7 @@ async function seedContentsIfEmpty() {
   await batch.commit();
   console.log("초기 콘텐츠 설정 완료");
 }
-seedContentsIfEmpty();
+// seedContentsIfEmpty(); // 초기 데이터 이미 입력됨
 
 async function seedNewContents() {
   // 새 콘텐츠 중 하나가 없으면 추가
@@ -992,7 +992,7 @@ async function seedNewContents() {
   await batch.commit();
   console.log("새 콘텐츠 추가 완료:", NEW_CONTENTS.length + "개");
 }
-seedNewContents();
+// seedNewContents(); // 추가 데이터 이미 입력됨
 
 // URL에 #admin 해시 있으면 관리자 로그인 모달 자동 오픈 (이미 로그인된 경우 바로 변경처리 탭으로)
 (function() {
