@@ -476,7 +476,7 @@
     <div class="card" style="margin-bottom:1rem;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
         <div class="section-title" style="margin:0;">📊 콘텐츠 신청/취소 현황</div>
-        <button onclick="loadContentStats()" style="font-size:12px;padding:5px 14px;border-radius:16px;border:1px solid #2BADA0;background:#fff;cursor:pointer;color:#2BADA0;font-weight:500;">새로고침</button>
+        <button onclick="loadContentStats(true)" style="font-size:12px;padding:5px 14px;border-radius:16px;border:1px solid #2BADA0;background:#fff;cursor:pointer;color:#2BADA0;font-weight:500;">새로고침</button>
       </div>
       <div id="contentStatsBody">
         <div class="empty" style="color:#ccc;font-size:13px;">탭 진입 시 자동 로드됩니다</div>
@@ -2124,6 +2124,13 @@ async function searchStudentStatus() {
     </div>`;
 }
 
+// ── 캐시 ──
+let _cachedStudents   = null;  // students 전체
+let _cachedSubmissions = null; // submissions 전체
+let _cachedContents   = null;  // contents 전체
+let _cachedStats      = null;  // contentStats 결과
+let _cacheTime        = 0;     // 마지막 캐시 시간
+
 let _currentHistorySid = "";   // 현재 이력 필터 학번 ("" = 전체)
 let _historyShowAll    = false; // 전체 체크박스 상태
 
@@ -3195,7 +3202,7 @@ function switchTab(idx) {
   localStorage.setItem("adminTab", idx);
   if (idx === 1) loadSubmissions();
   if (idx === 2) loadChanges();
-  if (idx === 3) { loadWorkListTab(); loadContentStats(); }
+  if (idx === 3) { loadWorkListTab(); loadContentStats(false); }
 }
 
 // Firebase Auth 대신 sessionStorage 기반으로 관리자 상태 복원
@@ -3334,8 +3341,16 @@ function getSeatCategory(seat) {
   return seat;
 }
 
-async function loadContentStats() {
+async function loadContentStats(forceRefresh = false) {
   const el = document.getElementById("contentStatsBody");
+
+  // 캐시 유효하면 재사용 (5분)
+  const CACHE_TTL = 5 * 60 * 1000;
+  if (!forceRefresh && _cachedStats && (Date.now() - _cacheTime < CACHE_TTL)) {
+    el.innerHTML = _cachedStats;
+    return;
+  }
+
   el.innerHTML = '<div class="empty" style="color:#ccc;font-size:13px;">불러오는 중...</div>';
 
   // 한국 시간 기준 오늘 날짜
@@ -3520,7 +3535,7 @@ async function loadContentStats() {
     </div>`;
   }).join("");
 
-  el.innerHTML = `
+  const statsHtml = `
     <!-- 인원 현황 -->
     <div style="display:flex;gap:10px;margin-bottom:1rem;">
       <div style="flex:1;padding:12px;background:#f8f8f6;border-radius:10px;text-align:center;">
@@ -3539,6 +3554,9 @@ async function loadContentStats() {
     <!-- 콘텐츠별 현황 -->
     ${statsRows}
   `;
+  el.innerHTML = statsHtml;
+  _cachedStats = statsHtml;
+  _cacheTime = Date.now();
 }
 
 async function loadWorkListTab() {
