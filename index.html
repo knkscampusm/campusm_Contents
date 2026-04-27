@@ -3338,7 +3338,10 @@ async function loadContentStats() {
   const el = document.getElementById("contentStatsBody");
   el.innerHTML = '<div class="empty" style="color:#ccc;font-size:13px;">불러오는 중...</div>';
 
-  const today = new Date().toISOString().slice(0,10);
+  // 한국 시간 기준 오늘 날짜
+  const _now = new Date();
+  const _kst = new Date(_now.getTime() + 9 * 60 * 60 * 1000);
+  const today = _kst.toISOString().slice(0,10);
 
   const [stuSnap, subSnap, contSnap] = await Promise.all([
     db.collection("students").get(),
@@ -3553,7 +3556,8 @@ async function loadWorkListTab() {
 
   const sel = document.getElementById("workDateSelect");
   sel.innerHTML = '<option value="">배부일을 선택하세요</option>';
-  const todayStr = new Date().toISOString().slice(0,10);
+  const _now2 = new Date(); const _kst2 = new Date(_now2.getTime() + 9*60*60*1000);
+  const todayStr = _kst2.toISOString().slice(0,10);
   Array.from(dates).sort().filter(d => d >= todayStr).forEach(d => {
     const opt = document.createElement("option");
     opt.value = d;
