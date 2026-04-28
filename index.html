@@ -3367,11 +3367,14 @@ async function loadContentStats(forceRefresh = false) {
   // 재원생 분류
   let total = 0, enrolled = 0, notEnrolled = 0;
   stuSnap.docs.forEach(d => {
-      const enroll = (d.data().enrollDate || "").trim();
-      console.log(d.id, "enrollDate:", d.data().enrollDate, "type:", typeof d.data().enrollDate); // ← 추가
-      if (!enroll) return; // 퇴원생 제외
+      const enrollRaw = d.data().enrollDate;
+      if (!enrollRaw) return; // 퇴원생 제외
+      const enrollDate = new Date(enrollRaw);
+      const todayDate = new Date(today);
+      enrollDate.setHours(0,0,0,0);
+      todayDate.setHours(0,0,0,0);
       total++;
-      if (enroll <= today) enrolled++;
+      if (enrollDate <= todayDate) enrolled++;
       else notEnrolled++;
     });
 
@@ -3417,11 +3420,16 @@ async function loadContentStats(forceRefresh = false) {
   // submissions 있는 학생 집계
   const subStudentIds = new Set();
   subSnap.docs.forEach(d => {
-    const data = d.data();
-    const sid = data.studentId;
-    const stuData = stuMap[sid] || {};
-    const enroll = (stuData.enrollDate || "").trim();
-    if (!enroll || enroll > today) return;
+      const data = d.data();
+      const sid = data.studentId;
+      const stuData = stuMap[sid] || {};
+      const enrollRaw = stuData.enrollDate;
+      if (!enrollRaw) return;
+      const enrollDate = new Date(enrollRaw);
+      const todayDate = new Date(today);
+      enrollDate.setHours(0,0,0,0);
+      todayDate.setHours(0,0,0,0);
+      if (enrollDate > todayDate) return;
 
     subStudentIds.add(sid);
     const selections = data.selections || {};
@@ -3455,11 +3463,16 @@ async function loadContentStats(forceRefresh = false) {
 
   // submissions 없는 입소 학생 → 전체 시리즈 신청으로 간주
   stuSnap.docs.forEach(d => {
-    const sid = d.id;
-    const stuData = d.data();
-    const enroll = (stuData.enrollDate || "").trim();
-    if (!enroll || enroll > today) return;
-    if (subStudentIds.has(sid)) return;
+      const sid = d.id;
+      const stuData = d.data();
+      const enrollRaw = stuData.enrollDate;
+      if (!enrollRaw) return;
+      const enrollDate = new Date(enrollRaw);
+      const todayDate = new Date(today);
+      enrollDate.setHours(0,0,0,0);
+      todayDate.setHours(0,0,0,0);
+      if (enrollDate > todayDate) return;
+      if (subStudentIds.has(sid)) return;
 
     const koChoice = stuData.koreanChoice || "언어와매체";
     const maChoice = stuData.mathChoice   || "미적분";
@@ -3711,10 +3724,14 @@ async function generateWorkList() {
 
   // 전체 학생 목록 구성 (배부일 기준 등원일 이후 학생만)
   const allStudents = Object.values(studentMap).filter(stu => {
-    const enroll = (stu.enrollDate || "").trim();
-    if (!enroll) return false; // 등원일 없으면 퇴원생으로 간주 → 제외
-    return enroll <= deliveryDate; // 등원일이 배부일 이전이어야 포함
-  }).map(stu => {
+      const enrollRaw = stu.enrollDate;
+      if (!enrollRaw) return false;
+      const enrollDate = new Date(enrollRaw);
+      const deliveryDateObj = new Date(deliveryDate);
+      enrollDate.setHours(0,0,0,0);
+      deliveryDateObj.setHours(0,0,0,0);
+      return enrollDate <= deliveryDateObj;
+    }).map(stu => {
     const sub = subMap[stu.id] || {};
     const selections = sub.selections || {};
 
