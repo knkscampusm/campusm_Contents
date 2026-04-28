@@ -3367,12 +3367,13 @@ async function loadContentStats(forceRefresh = false) {
   // 재원생 분류
   let total = 0, enrolled = 0, notEnrolled = 0;
   stuSnap.docs.forEach(d => {
-    const enroll = (d.data().enrollDate || "").trim();
-    if (!enroll) return; // 퇴원생 제외
-    total++;
-    if (enroll <= today) enrolled++;
-    else notEnrolled++;
-  });
+      const enroll = (d.data().enrollDate || "").trim();
+      console.log(d.id, "enrollDate:", d.data().enrollDate, "type:", typeof d.data().enrollDate); // ← 추가
+      if (!enroll) return; // 퇴원생 제외
+      total++;
+      if (enroll <= today) enrolled++;
+      else notEnrolled++;
+    });
 
   // 시리즈 목록
   const seriesList = [];
