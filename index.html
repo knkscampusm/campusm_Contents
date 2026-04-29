@@ -2311,8 +2311,10 @@ async function loadChanges() {
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
-          <button onclick="toggleProcessedMerged('${toggleDocIds}','${togglePeriods}',${!processed})"
-            style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
+          <button class="process-btn"
+            data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}" data-processed="${processed}"
+            style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};"
+            onclick="toggleProcessedMerged(this.dataset.docIds,this.dataset.periods,this.dataset.processed!=='true')">
             ${processed ? '처리완료 ✓' : '미처리'}
           </button>
           ${processed && processedAt    ? `<div style="font-size:10px;color:#2BADA0;text-align:center;">처리: ${processedAt}</div>`   : ""}
@@ -2328,9 +2330,8 @@ async function loadChanges() {
     const card = changed.find(s => s.studentId === sid);
     if (!card) return;
     const mergedPeriods = card._mergedPeriods || [card.cutoffDate || "기준일 미설정"];
-    function stripMemoMeta(m) { if (!m) return ""; return m.replace(/\s*\([^)]+·[^)]+\)\s*$/, "").replace(/\s*\([^)]+\)\s*$/, "").trim(); }
     const memoRaw = mergedPeriods.map(p => card.memoByPeriod?.[p]).filter(Boolean).join(" / ") || "";
-    input.value = stripMemoMeta(memoRaw);
+    input.value = memoRaw.replace(/\s*\([^)]+·[^)]+\)\s*$/, "").replace(/\s*\([^)]+\)\s*$/, "").trim();
   });
 }
 
@@ -2344,8 +2345,9 @@ function searchChangeCard(val) {
 
 async function toggleProcessedMerged(docIdsJson, periodsJson, newVal) {
   let docIds, periods;
-  try { docIds = JSON.parse(docIdsJson.replace(/&quot;/g, '"')); periods = JSON.parse(periodsJson.replace(/&quot;/g, '"')); }
+  try { docIds = JSON.parse(docIdsJson); periods = JSON.parse(periodsJson); }
   catch(e) { docIds = [docIdsJson]; periods = [periodsJson]; }
+  if (typeof newVal === "string") newVal = newVal === "true";
   if (!newVal && docIds.length > 0) {
     const thisDoc = await db.collection("submissionHistory").doc(docIds[0]).get();
     if (thisDoc.exists) {
