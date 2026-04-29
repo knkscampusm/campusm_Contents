@@ -1206,6 +1206,17 @@ function renderNotice() {
       </div>`;
     }).join("");
 
+  // 비고 input value 안전하게 세팅 (특수문자 대응)
+  el.querySelectorAll("input.memo-input").forEach(input => {
+    const sid = input.closest(".student-card")?.dataset.sid;
+    const card = changed.find(s => s.studentId === sid);
+    if (!card) return;
+    const mergedPeriods = card._mergedPeriods || [card.cutoffDate || "기준일 미설정"];
+    function stripMemoMeta(m) { if (!m) return ""; return m.replace(/\s*\([^)]+·[^)]+\)\s*$/, "").replace(/\s*\([^)]+\)\s*$/, "").trim(); }
+    const memoRaw = mergedPeriods.map(p => card.memoByPeriod?.[p]).filter(Boolean).join(" / ") || "";
+    input.value = stripMemoMeta(memoRaw);
+  });
+
     return { cat, color, items };
   });
 
@@ -2301,7 +2312,8 @@ async function loadChanges() {
           ${(isUnprocessed && Object.keys(seriesNetInfo).length > 0) ? `<div style="font-size:11px;color:#f9a825;font-weight:500;margin-bottom:8px;">⚠ 미처리 건 중 신청/취소 번복 이력있음 · 최신값 기준으로 표시</div>` : `<div style="margin-bottom:8px;"></div>`}
           ${changeList}${totalStr}
           <div style="margin-top:8px;">
-            <input type="text" placeholder="비고 입력 후 Enter" value="${memo}"
+            <input type="text" placeholder="비고 입력 후 Enter"
+              class="memo-input"
               style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
               data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
               onkeydown="if(event.key==='Enter'){saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value);this.blur();}"
