@@ -2829,6 +2829,25 @@ async function generateWorkList() {
     return { ...stu, seatCat, sciStr, effectiveMathChoice, contentCells, appliedCount, totalSeries: deliverySeries.length };
   }).filter(stu => stu.id);
 
+  const fullBuyers    = sortStudents(allStudents.filter(s => s.appliedCount === s.totalSeries && s.totalSeries > 0));
+  const partialBuyers = sortStudents(allStudents.filter(s => s.appliedCount > 0 && s.appliedCount < s.totalSeries));
+  const noBuyers      = sortStudents(allStudents.filter(s => s.appliedCount === 0));
+
+  const wb = XLSX.utils.book_new();
+  const weekLabel = getWeekLabel2(deliveryDate);
+  const dt = new Date(deliveryDate);
+  const dateLabel = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
+
+  // ── 배부일 콘텐츠 기준으로 선택과목 열 필요 여부 판단 ──
+  const KOREAN_CHOICE_SERIES  = new Set(["CRUX 국어"]);  // 화작·언매 회차 포함
+  const MATH_CHOICE_SERIES    = new Set(["CRUX 수학","CONNEX 수학","CONNEX 수학(미적분·확통·기하)","CONNEX 수학(확통·기하)","CONNEX 수학(미적분)"]);
+  const SCIENCE_CHOICE_SERIES = new Set(["CRUX 과학Ⅰ","CRUX 과학Ⅱ","CIRCUIT 과학Ⅰ"]);
+
+  // 화작·언매 회차가 있을 때만 국어선택 열 표시
+  const needKoreanChoice  = deliveryContents.some(c => c.name.includes("화작·언매")) ;
+  const needMathChoice    = deliverySeries.some(s => MATH_CHOICE_SERIES.has(s));
+  const needScienceChoice = deliverySeries.some(s => SCIENCE_CHOICE_SERIES.has(s));
+
   function sortStudents(students) {
     return students.sort((a, b) => {
       for (const key of sortKeys) {
@@ -2850,25 +2869,6 @@ async function generateWorkList() {
       return 0;
     });
   }
-
-  const fullBuyers    = sortStudents(allStudents.filter(s => s.appliedCount === s.totalSeries && s.totalSeries > 0));
-  const partialBuyers = sortStudents(allStudents.filter(s => s.appliedCount > 0 && s.appliedCount < s.totalSeries));
-  const noBuyers      = sortStudents(allStudents.filter(s => s.appliedCount === 0));
-
-  const wb = XLSX.utils.book_new();
-  const weekLabel = getWeekLabel2(deliveryDate);
-  const dt = new Date(deliveryDate);
-  const dateLabel = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
-
-  // ── 배부일 콘텐츠 기준으로 선택과목 열 필요 여부 판단 ──
-  const KOREAN_CHOICE_SERIES  = new Set(["CRUX 국어"]);  // 화작·언매 회차 포함
-  const MATH_CHOICE_SERIES    = new Set(["CRUX 수학","CONNEX 수학","CONNEX 수학(미적분·확통·기하)","CONNEX 수학(확통·기하)","CONNEX 수학(미적분)"]);
-  const SCIENCE_CHOICE_SERIES = new Set(["CRUX 과학Ⅰ","CRUX 과학Ⅱ","CIRCUIT 과학Ⅰ"]);
-
-  // 화작·언매 회차가 있을 때만 국어선택 열 표시
-  const needKoreanChoice  = deliveryContents.some(c => c.name.includes("화작·언매")) ;
-  const needMathChoice    = deliverySeries.some(s => MATH_CHOICE_SERIES.has(s));
-  const needScienceChoice = deliverySeries.some(s => SCIENCE_CHOICE_SERIES.has(s));
 
   const fixedHeaders = ["주차","연번","독서실","그룹","학번","이름"];
   const choiceHeaders = [
