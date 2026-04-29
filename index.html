@@ -679,7 +679,10 @@ const db   = firebase.firestore();
 const DEFAULT_PRICES = {
   "CRUX 국어":          9000,
   "CRUX 수학":          9000,
-  "CONNEX 수학":        10000,
+  "CONNEX 수학":                    10000,
+  "CONNEX 수학(미적분·확통·기하)":  10000,
+  "CONNEX 수학(확통·기하)":         10000,
+  "CONNEX 수학(미적분)":            10000,
   "CIRCUIT 수학":       7000,
   "The Constant":       8500,
   "CIRCUIT 영어":       6500,
@@ -731,13 +734,13 @@ const INITIAL_CONTENTS = [
   { id: "ma_cn_si_5", name: "CONNEX 수학(수I·수II) 5회",  category: "수학",    order: 32,  deliveryDate: "2026-04-16" },
   { id: "ma_cn_si_6", name: "CONNEX 수학(수I·수II) 6회",  category: "수학",    order: 33,  deliveryDate: "2026-04-30" },
   { id: "ma_cn_si_7", name: "CONNEX 수학(수I·수II) 7회",  category: "수학",    order: 34,  deliveryDate: "2026-05-14" },
-  { id: "ma_cn_mi_1", name: "CONNEX 수학(미적분·확통) 1회", category: "수학",  order: 35,  deliveryDate: "2026-03-12" },
-  { id: "ma_cn_mi_2", name: "CONNEX 수학(미적분·확통) 2회", category: "수학",  order: 36,  deliveryDate: "2026-03-26" },
-  { id: "ma_cn_mi_3", name: "CONNEX 수학(미적분·확통) 3회", category: "수학",  order: 37,  deliveryDate: "2026-04-09" },
-  { id: "ma_cn_mi_4", name: "CONNEX 수학(미적분·확통) 4회", category: "수학",  order: 38,  deliveryDate: "2026-04-23" },
-  { id: "ma_cn_mi_5", name: "CONNEX 수학(미적분·확통) 5회", category: "수학",  order: 39,  deliveryDate: "2026-05-07" },
-  { id: "ma_cn_hak_6",name: "CONNEX 수학(확통) 6회",       category: "수학",    order: 40,  deliveryDate: "2026-05-20" },
-  { id: "ma_cn_mi_67",name: "CONNEX 수학(미적) 6·7회",     category: "수학",    order: 41,  deliveryDate: "2026-05-20" },
+  { id: "ma_cn_mi_1", name: "CONNEX 수학(미적분·확통·기하) 1회", category: "수학",  order: 35,  deliveryDate: "2026-03-12" },
+  { id: "ma_cn_mi_2", name: "CONNEX 수학(미적분·확통·기하) 2회", category: "수학",  order: 36,  deliveryDate: "2026-03-26" },
+  { id: "ma_cn_mi_3", name: "CONNEX 수학(미적분·확통·기하) 3회", category: "수학",  order: 37,  deliveryDate: "2026-04-09" },
+  { id: "ma_cn_mi_4", name: "CONNEX 수학(미적분·확통·기하) 4회", category: "수학",  order: 38,  deliveryDate: "2026-04-23" },
+  { id: "ma_cn_mi_5", name: "CONNEX 수학(미적분·확통·기하) 5회", category: "수학",  order: 39,  deliveryDate: "2026-05-07" },
+  { id: "ma_cn_hak_6",name: "CONNEX 수학(확통·기하) 6회",       category: "수학",    order: 40,  deliveryDate: "2026-05-20" },
+  { id: "ma_cn_mi_7", name: "CONNEX 수학(미적분) 7회",      category: "수학",    order: 41,  deliveryDate: "2026-05-20" },
   { id: "ma_ci_1_3",  name: "CIRCUIT 수학 1~3회",           category: "수학",    order: 42,  deliveryDate: "2026-03-12" },
   { id: "ma_ci_4_6",  name: "CIRCUIT 수학 4~6회",           category: "수학",    order: 43,  deliveryDate: "2026-03-18" },
   { id: "ma_ci_7_9",  name: "CIRCUIT 수학 7~9회",           category: "수학",    order: 44,  deliveryDate: "2026-03-26" },
@@ -1001,6 +1004,9 @@ function formatDateKR(dateStr) {
 function getSeriesName(name) {
   const base = name.replace(/\s+[\d~·\-]+회$/, "").trim();
   if (base === "CRUX 공통국어" || base === "CRUX 화작·언매") return "CRUX 국어";
+  if (base === "CONNEX 수학(미적분·확통·기하)") return "CONNEX 수학(미적분·확통·기하)";
+  if (base === "CONNEX 수학(확통·기하)")        return "CONNEX 수학(확통·기하)";
+  if (base === "CONNEX 수학(미적분)")            return "CONNEX 수학(미적분)";
   if (base.startsWith("CONNEX 수학")) return "CONNEX 수학";
   if (base === "CRUX 과학Ⅰ") return "CRUX 과학Ⅰ";
   if (base === "CRUX 과학Ⅱ") return "CRUX 과학Ⅱ";
@@ -1028,6 +1034,9 @@ function getContentPrice(name, priceMap) {
   const unitPrice = priceMap[priceKey] || DEFAULT_PRICES[priceKey] || 0;
   if (!unitPrice) return 0;
   const rounds = getRoundCount(name);
+  if (series === "CONNEX 수학(미적분·확통·기하)") return unitPrice * rounds * 3;
+  if (series === "CONNEX 수학(확통·기하)")        return unitPrice * rounds * 2;
+  if (series === "CONNEX 수학(미적분)")            return unitPrice * rounds * 1;
   if (series === "CONNEX 수학" && name.includes("수I·수II")) return unitPrice * rounds * 2;
   if (series === "강대모의고사K 수학") return 28000;
   if (series === "CIRCUIT 수학" || series === "CIRCUIT 영어" || series === "CIRCUIT 과학Ⅰ") return unitPrice * rounds;
