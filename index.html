@@ -1034,9 +1034,9 @@ function getContentPrice(name, priceMap) {
   const unitPrice = priceMap[priceKey] || DEFAULT_PRICES[priceKey] || 0;
   if (!unitPrice) return 0;
   const rounds = getRoundCount(name);
-  if (series === "CONNEX 수학(미적분·확통·기하)") return unitPrice * rounds * 3;
-  if (series === "CONNEX 수학(확통·기하)")        return unitPrice * rounds * 2;
-  if (series === "CONNEX 수학(미적분)")            return unitPrice * rounds * 1;
+  if (series === "CONNEX 수학(미적분·확통·기하)") return unitPrice * rounds;
+  if (series === "CONNEX 수학(확통·기하)")        return unitPrice * rounds;
+  if (series === "CONNEX 수학(미적분)")            return unitPrice * rounds;
   if (series === "CONNEX 수학" && name.includes("수I·수II")) return unitPrice * rounds * 2;
   if (series === "강대모의고사K 수학") return 28000;
   if (series === "CIRCUIT 수학" || series === "CIRCUIT 영어" || series === "CIRCUIT 과학Ⅰ") return unitPrice * rounds;
@@ -2855,22 +2855,60 @@ async function generateWorkList() {
   const weekLabel = getWeekLabel2(deliveryDate);
   const dt = new Date(deliveryDate);
   const dateLabel = `${dt.getMonth()+1}월 ${dt.getDate()}일`;
-  const baseHeaders = ["주차","연번","독서실","그룹","학번","이름","국어선택","수학선택","탐구선택"];
+
+  // ── 배부일 콘텐츠 기준으로 선택과목 열 필요 여부 판단 ──
+  const KOREAN_CHOICE_SERIES  = new Set(["CRUX 국어"]);  // 화작·언매 회차 포함
+  const MATH_CHOICE_SERIES    = new Set(["CRUX 수학","CONNEX 수학","CONNEX 수학(미적분·확통·기하)","CONNEX 수학(확통·기하)","CONNEX 수학(미적분)"]);
+  const SCIENCE_CHOICE_SERIES = new Set(["CRUX 과학Ⅰ","CRUX 과학Ⅱ","CIRCUIT 과학Ⅰ"]);
+
+  // 화작·언매 회차가 있을 때만 국어선택 열 표시
+  const needKoreanChoice  = deliveryContents.some(c => c.name.includes("화작·언매")) ;
+  const needMathChoice    = deliverySeries.some(s => MATH_CHOICE_SERIES.has(s));
+  const needScienceChoice = deliverySeries.some(s => SCIENCE_CHOICE_SERIES.has(s));
+
+  const fixedHeaders = ["주차","연번","독서실","그룹","학번","이름"];
+  const choiceHeaders = [
+    ...(needKoreanChoice  ? ["국어선택"] : []),
+    ...(needMathChoice    ? ["수학선택"] : []),
+    ...(needScienceChoice ? ["탐구선택"] : []),
+  ];
   const contentHeaders = deliverySeries.map((_, i) => `상품명${i+1}`);
-  const headers = [...baseHeaders, ...contentHeaders];
+  const headers = [...fixedHeaders, ...choiceHeaders, ...contentHeaders];
 
   function makeRows(students) {
-    return students.map((stu, idx) => {
-      const base = [weekLabel, idx+1, stu.seatCat, stu.group || "", stu.id, stu.name || "", stu.koreanChoice || "", stu.effectiveMathChoice || stu.mathChoice || "", stu.sciStr];
+    // 그룹별 연번 리셋
+    let currentGroup = null;
+    let groupIdx = 0;
+    return students.map((stu) => {
+      if (stu.group !== currentGroup) { currentGroup = stu.group; groupIdx = 1; }
+      else groupIdx++;
+      const fixed = [weekLabel, groupIdx, stu.seatCat, stu.group || "", stu.id, stu.name || ""];
+      const choices = [
+        ...(needKoreanChoice  ? [stu.koreanChoice || ""] : []),
+        ...(needMathChoice    ? [stu.effectiveMathChoice || stu.mathChoice || ""] : []),
+        ...(needScienceChoice ? [stu.sciStr] : []),
+      ];
       const contents = deliverySeries.map(series => stu.contentCells[series] || "");
-      return [...base, ...contents];
+      return [...fixed, ...choices, ...contents];
     });
   }
 
   function addSheet(name, students) {
     const rows = makeRows(students);
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws["!cols"] = [{wch:10},{wch:6},{wch:8},{wch:6},{wch:8},{wch:10},{wch:10},{wch:10},{wch:16},...contentHeaders.map(()=>({wch:22}))];
+    const colWidths = [
+      {wch:10}, // 주차
+      {wch:6},  // 연번
+      {wch:8},  // 독서실
+      {wch:6},  // 그룹
+      {wch:8},  // 학번
+      {wch:10}, // 이름
+      ...(needKoreanChoice  ? [{wch:10}] : []),
+      ...(needMathChoice    ? [{wch:10}] : []),
+      ...(needScienceChoice ? [{wch:16}] : []),
+      ...contentHeaders.map(() => ({wch:22})),
+    ];
+    ws["!cols"] = colWidths;
 
     // 헤더 행 스타일 (teal 배경)
     const range = XLSX.utils.decode_range(ws["!ref"]);
@@ -2886,7 +2924,7 @@ async function generateWorkList() {
     }
 
     // 콘텐츠 열 빈 셀 → 회색 배경
-    const contentStartCol = baseHeaders.length;
+    const contentStartCol = fixedHeaders.length + choiceHeaders.length;
     for (let r = 1; r <= range.e.r; r++) {
       for (let c = contentStartCol; c <= range.e.c; c++) {
         const cellAddr = XLSX.utils.encode_cell({ r, c });
