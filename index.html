@@ -2832,6 +2832,10 @@ async function generateWorkList() {
   function sortStudents(students) {
     return students.sort((a, b) => {
       for (const key of sortKeys) {
+        // 해당 배부일에 열이 없는 선택과목 기준은 건너뜀
+        if (key === "koreanChoice" && !needKoreanChoice) continue;
+        if (key === "mathChoice"   && !needMathChoice)   continue;
+        if (key === "subject"      && !needScienceChoice) continue;
         let va, vb;
         if (key === "seat")         { va = a.seatCat || ""; vb = b.seatCat || ""; }
         else if (key === "group")   { va = a.group || ""; vb = b.group || ""; }
