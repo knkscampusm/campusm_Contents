@@ -2303,8 +2303,9 @@ async function loadChanges() {
           <div style="margin-top:8px;">
             <input type="text" placeholder="비고 입력 후 Enter" value="${memo}"
               style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
-              onkeydown="if(event.key==='Enter'){saveMemoMerged('${toggleDocIds}','${togglePeriods}',this.value);this.blur();}"
-              onblur="saveMemoMerged('${toggleDocIds}','${togglePeriods}',this.value)" />
+              data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
+              onkeydown="if(event.key==='Enter'){saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value);this.blur();}"
+              onblur="saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value)" />
             ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;padding-left:4px;">${memoFull.replace(memo,'').trim()}</div>` : ""}
           </div>
         </div>
@@ -2354,7 +2355,7 @@ async function toggleProcessedMerged(docIdsJson, periodsJson, newVal) {
 
 async function saveMemoMerged(docIdsJson, periodsJson, memo) {
   let docIds, periods;
-  try { docIds = JSON.parse(docIdsJson.replace(/&quot;/g, '"')); periods = JSON.parse(periodsJson.replace(/&quot;/g, '"')); }
+  try { docIds = JSON.parse(docIdsJson); periods = JSON.parse(periodsJson); }
   catch(e) { docIds = [docIdsJson]; periods = [periodsJson]; }
   for (let i = 0; i < docIds.length; i++) await saveMemo(docIds[i], periods[i], memo);
 }
