@@ -1038,6 +1038,11 @@ function getRoundCount(name) {
 
 function getContentPrice(name, priceMap) {
   const series = getSeriesName(name);
+  // 강대모의고사X 수학: unitPrice 체크 전에 고정 금액 반환
+  if (series === "강대모의고사X 수학") {
+    if (name.includes("3·4회+써킷X") || name.includes("5·6회+써킷X")) return 36540;
+    return 20880;
+  }
   const priceKey = series === "CRUX 과학Ⅰ" ? "CRUX 과학" : series;
   const unitPrice = priceMap[priceKey] || DEFAULT_PRICES[priceKey] || 0;
   if (!unitPrice) return 0;
@@ -1046,10 +1051,6 @@ function getContentPrice(name, priceMap) {
   if (series === "CONNEX 수학(확통·기하)")        return unitPrice * rounds;
   if (series === "CONNEX 수학(미적분)")            return unitPrice * rounds;
   if (series === "CONNEX 수학" && name.includes("수I·수II")) return unitPrice * rounds * 2;
-  if (series === "강대모의고사X 수학") {
-    if (name.includes("3·4회+써킷X") || name.includes("5·6회+써킷X")) return 36540;
-    return 20880;
-  }
   if (series === "강대모의고사K 수학") return 28000;
   if (series === "CIRCUIT 수학" || series === "CIRCUIT 영어" || series === "CIRCUIT 과학Ⅰ") return unitPrice * rounds;
   return unitPrice;
