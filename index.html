@@ -319,6 +319,12 @@
     <div id="lookupMsg" class="msg" style="margin:0;min-height:0;"></div>
   </div>
 
+  <!-- 위클리팩 배부 일정 -->
+  <div id="scheduleSection" class="card" style="padding:1rem 1.25rem;">
+    <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:0.75rem;">📦 위클리팩 배부 일정</div>
+    <div id="scheduleBody"><div class="empty" style="font-size:13px;">불러오는 중...</div></div>
+  </div>
+
   <div id="refundDateGuide" style="display:none;padding:8px 14px;background:#e4f5f3;border-radius:10px;margin-bottom:0.875rem;font-size:13px;font-weight:700;color:#2BADA0;"></div>
 
   <div id="studentInfoCard" class="card" style="display:none;">
@@ -1583,18 +1589,15 @@ async function loadAdminContents() {
   function getMonthKey(d) { return d ? d.slice(0,7) : "9999-99"; }
   function getWeekKey(d) {
     if (!d) return "9999-99-9";
-    const dt = new Date(d);
-    const m = String(dt.getMonth()+1).padStart(2,"0");
+    const dt = new Date(d); const m = String(dt.getMonth()+1).padStart(2,"0");
     return `${d.slice(0,4)}-${m}-${Math.ceil(dt.getDate()/7)}`;
   }
   function getWeekLabel(d) {
     if (!d) return "날짜 미정";
-    const dt = new Date(d);
-    const m = String(dt.getMonth()+1).padStart(2,"0");
+    const dt = new Date(d); const m = String(dt.getMonth()+1).padStart(2,"0");
     return `${monthNames[m]||m+"월"} ${Math.ceil(dt.getDate()/7)}주차`;
   }
 
-  // 월-주차-과목 구조로 그룹화
   const monthGroups = {};
   snap.docs.forEach(doc => {
     const data = { id: doc.id, ...doc.data() };
@@ -1610,8 +1613,6 @@ async function loadAdminContents() {
   function renderItem(item) {
     const price = getContentPrice(item.name, adminPrices);
     const priceStr = price ? `<div style="font-size:10px;color:#aaa;">${price.toLocaleString()}원</div>` : "";
-    const dateVal = item.deliveryDate || "";
-    const dateLabel = dateVal ? `${new Date(dateVal).getMonth()+1}/${new Date(dateVal).getDate()}` : "-";
     const safeId   = item.id.replace(/'/g,"\'");
     const safeName = item.name.replace(/'/g,"\'");
     return `<div style="display:flex;align-items:center;gap:5px;padding:4px 6px;border-bottom:1px solid #f5f5f3;min-width:0;">
@@ -1635,8 +1636,10 @@ async function loadAdminContents() {
       const weekCats = monthGroups[mKey][wKey];
       const weekLabel = getWeekLabel(Object.values(weekCats).flat()[0]?.deliveryDate);
       const weekItemCount = Object.values(weekCats).flat().length;
+      const weekDate = Object.values(weekCats).flat()[0]?.deliveryDate || "";
+      const weekAllIds = Object.values(weekCats).flat().map(c => c.id);
+      const weekIdsJson = JSON.stringify(weekAllIds).replace(/"/g,"&quot;");
 
-      // 4컬럼 그리드 (과목별)
       const gridCols = CAT_ORDER.map(cat => {
         const color = catColors[cat] || "#888";
         const items = (weekCats[cat] || []).sort((a,b) => (a.order||0)-(b.order||0));
@@ -1647,26 +1650,17 @@ async function loadAdminContents() {
         </div>`;
       }).join("");
 
-      // 주차 대표 배부일 (첫 번째 아이템 기준)
-      const weekDate = Object.values(weekCats).flat()[0]?.deliveryDate || "";
-      const weekDateLabel = weekDate ? `${new Date(weekDate).getMonth()+1}/${new Date(weekDate).getDate()}` : "-";
-      // 주차 내 모든 콘텐츠 id 목록 (일괄 날짜 수정용)
-      const weekAllIds = Object.values(weekCats).flat().map(c => c.id);
-      const weekIdsJson = JSON.stringify(weekAllIds).replace(/"/g,"&quot;");
-
       return `<div style="margin-bottom:8px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
         <div style="padding:6px 12px;background:#f4f4f2;border-bottom:1px solid #e8e8e6;display:flex;align-items:center;justify-content:space-between;">
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:13px;font-weight:700;color:#555;">${weekLabel}</span>
             <span style="font-size:11px;color:#aaa;">${weekItemCount}개</span>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <input type="date" value="${weekDate}"
-              style="padding:3px 6px;font-size:12px;border:1px solid #2BADA030;border-radius:6px;background:#e4f5f3;outline:none;color:#2BADA0;font-weight:600;cursor:pointer;"
-              onchange="bulkUpdateWeekDate(${weekIdsJson},this.value,this);" />
-          </div>
+          <input type="date" value="${weekDate}"
+            style="padding:3px 6px;font-size:12px;border:1px solid #2BADA030;border-radius:6px;background:#e4f5f3;outline:none;color:#2BADA0;font-weight:600;cursor:pointer;"
+            onchange="bulkUpdateWeekDate(${weekIdsJson},this.value,this);" />
         </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:6px 8px;gap:8px;">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:6px 8px;">
           ${gridCols}
         </div>
       </div>`;
@@ -1696,10 +1690,11 @@ async function bulkUpdateWeekDate(ids, date, inputEl) {
   await batch.commit();
   for (const id of ids) {
     const prev = await db.collection("contents").doc(id).get();
-    const contentName = prev.exists ? (prev.data().name || "") : "";
-    const oldDate = prev.exists ? (prev.data().deliveryDate || "") : "";
     await db.collection("contentLogs").add({
-      contentId: id, contentName, oldDate, newDate: date,
+      contentId: id,
+      contentName: prev.exists ? (prev.data().name || "") : "",
+      oldDate: prev.exists ? (prev.data().deliveryDate || "") : "",
+      newDate: date,
       changedBy: _currentStaff || "알 수 없음",
       changedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -2553,7 +2548,98 @@ function switchTab(idx) {
   const cutoff = doc.exists ? doc.data().cutoffDate : null;
   const el = document.getElementById("staticRefundGuide");
   if (el && cutoff) el.textContent = `${formatDateKR(cutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다`;
+  loadDeliverySchedule();
 })();
+
+async function loadDeliverySchedule() {
+  const el = document.getElementById("scheduleBody");
+  if (!el) return;
+
+  const snap = await db.collection("contents").orderBy("deliveryDate").orderBy("order").get();
+  const contents = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.deliveryDate);
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const twoWeeksLater = new Date(today); twoWeeksLater.setDate(twoWeeksLater.getDate() + 14);
+
+  const CAT_ORDER  = ["국어","수학","영어","과학탐구"];
+  const catColors  = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
+  const monthNames = {"01":"1월","02":"2월","03":"3월","04":"4월","05":"5월","06":"6월","07":"7월","08":"8월","09":"9월","10":"10월","11":"11월","12":"12월"};
+
+  // 배부일 기준 그룹화
+  const dateGroups = {};
+  contents.forEach(c => {
+    if (!dateGroups[c.deliveryDate]) dateGroups[c.deliveryDate] = {};
+    if (!dateGroups[c.deliveryDate][c.category]) dateGroups[c.deliveryDate][c.category] = [];
+    dateGroups[c.deliveryDate][c.category].push(c);
+  });
+
+  const allDates = Object.keys(dateGroups).sort();
+  const nearDates = allDates.filter(d => new Date(d) >= today && new Date(d) <= twoWeeksLater);
+  const futureDates = allDates.filter(d => new Date(d) > twoWeeksLater);
+
+  function renderDateBlock(dateStr) {
+    const dt = new Date(dateStr);
+    const m  = String(dt.getMonth()+1).padStart(2,"0");
+    const weekDay = ["일","월","화","수","목","금","토"][dt.getDay()];
+    const dateLabel = `${monthNames[m]||m+"월"} ${dt.getDate()}일 (${weekDay})`;
+    const isToday = dateStr === today.toISOString().slice(0,10);
+    const cats = dateGroups[dateStr];
+
+    const catCols = CAT_ORDER.map(cat => {
+      const color = catColors[cat] || "#888";
+      const items = cats[cat] || [];
+      if (!items.length) return `<div></div>`;
+      return `<div>
+        <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid ${color}30;">${cat}</div>
+        ${items.map(c => `<div style="font-size:12px;color:#444;padding:2px 0;line-height:1.5;">${c.name}</div>`).join("")}
+      </div>`;
+    }).join("");
+
+    return `<div style="margin-bottom:10px;border:1px solid ${isToday?'#2BADA0':'#e5e5e3'};border-radius:10px;overflow:hidden;${isToday?'box-shadow:0 0 0 2px #2BADA030;':''}">
+      <div style="padding:6px 12px;background:${isToday?'#e4f5f3':'#f8f8f6'};border-bottom:1px solid ${isToday?'#2BADA030':'#e5e5e3'};display:flex;align-items:center;gap:6px;">
+        <span style="font-size:13px;font-weight:700;color:${isToday?'#2BADA0':'#333'};">${dateLabel}</span>
+        ${isToday?'<span style="font-size:10px;background:#2BADA0;color:#fff;padding:1px 7px;border-radius:10px;font-weight:600;">오늘</span>':''}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 12px;">
+        ${catCols}
+      </div>
+    </div>`;
+  }
+
+  let html = "";
+
+  if (nearDates.length === 0 && futureDates.length === 0) {
+    el.innerHTML = '<div class="empty" style="font-size:13px;">예정된 배부 일정이 없습니다</div>';
+    return;
+  }
+
+  if (nearDates.length > 0) {
+    html += nearDates.map(renderDateBlock).join("");
+  } else {
+    html += '<div style="font-size:12px;color:#aaa;padding:4px 0 8px;">2주 이내 배부 일정이 없습니다</div>';
+  }
+
+  if (futureDates.length > 0) {
+    html += `<div>
+      <button onclick="toggleScheduleFuture(this)"
+        style="width:100%;padding:8px;font-size:12px;font-weight:600;color:#888;background:#f4f4f2;border:1px solid #e5e5e3;border-radius:8px;cursor:pointer;margin-top:4px;">
+        이후 일정 보기 (${futureDates.length}일) ▼
+      </button>
+      <div id="scheduleFuture" style="display:none;margin-top:8px;">
+        ${futureDates.map(renderDateBlock).join("")}
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function toggleScheduleFuture(btn) {
+  const el = document.getElementById("scheduleFuture");
+  const open = el.style.display === "none";
+  el.style.display = open ? "" : "none";
+  btn.textContent = open ? `이후 일정 접기 ▲` : `이후 일정 보기 (${el.children.length}일) ▼`;
+}
 
 (function checkStaffSession() {
   const savedStaff = sessionStorage.getItem("staffName") || "";
