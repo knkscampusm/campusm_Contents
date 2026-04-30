@@ -1289,9 +1289,6 @@ function renderNotice() {
     </div>` : "";
 
   el.innerHTML = `
-    <div style="padding:10px 14px;background:#e4f5f3;border-radius:10px;margin-bottom:1rem;font-size:13px;font-weight:700;color:#2BADA0;">
-      ${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다
-    </div>
     ${cutoffTableHtml ? `<div style="margin-bottom:1rem;">${cutoffTableHtml}</div>` : ""}
     <div>${gridHtml}</div>
     <div style="margin-top:1.25rem;">
