@@ -1038,7 +1038,6 @@ function getRoundCount(name) {
 
 function getContentPrice(name, priceMap) {
   const series = getSeriesName(name);
-  // 강대모의고사X 수학: unitPrice 체크 전에 고정 금액 반환
   if (series === "강대모의고사X 수학") {
     if (name.includes("3·4회+써킷X") || name.includes("5·6회+써킷X")) return 36540;
     return 20880;
@@ -1051,6 +1050,10 @@ function getContentPrice(name, priceMap) {
   if (series === "CONNEX 수학(확통·기하)")        return unitPrice * rounds;
   if (series === "CONNEX 수학(미적분)")            return unitPrice * rounds;
   if (series === "CONNEX 수학" && name.includes("수I·수II")) return unitPrice * rounds * 2;
+  if (series === "강대모의고사X 수학") {
+    if (name.includes("3·4회+써킷X") || name.includes("5·6회+써킷X")) return 36540;
+    return 20880;
+  }
   if (series === "강대모의고사K 수학") return 28000;
   if (series === "CIRCUIT 수학" || series === "CIRCUIT 영어" || series === "CIRCUIT 과학Ⅰ") return unitPrice * rounds;
   return unitPrice;
@@ -1134,9 +1137,7 @@ function renderNotice() {
       const canRefund = !!firstRefundable;
       if (!selections[series]) selections[series] = "신청";
       const sel   = selections[series];
-      const price = firstRefundable
-        ? getContentPrice(firstRefundable.name, seriesPrices)
-        : (seriesPrices[series] || DEFAULT_PRICES[series]);
+      const price = firstRefundable ? getContentPrice(firstRefundable.name, seriesPrices) : (seriesPrices[series] || DEFAULT_PRICES[series]);
 
       if (cat === "과학탐구") {
         if (series === "CRUX 과학Ⅰ") {
@@ -1574,81 +1575,58 @@ async function loadAdminContents() {
   const adminPrices = { ...DEFAULT_PRICES, ...(priceDoc.exists ? priceDoc.data() : {}) };
   const el = document.getElementById("adminContentList");
   if (snap.empty) { el.innerHTML = '<div class="empty">등록된 콘텐츠가 없습니다</div>'; return; }
-  const monthNames = {"02":"2월","03":"3월","04":"4월","05":"5월","06":"6월","07":"7월","08":"8월"};
-  function getWeekLabel(dateStr) {
-    if (!dateStr) return "날짜 미정";
-    const d = new Date(dateStr);
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = d.getDate();
-    const week = Math.ceil(day / 7);
-    return `${monthNames[m] || m+"월"} ${week}주차`;
-  }
-  function getMonthKey(dateStr) { if (!dateStr) return "9999-99"; return dateStr.slice(0, 7); }
-  function getWeekKey(dateStr) {
-    if (!dateStr) return "9999-99-9";
-    const d = new Date(dateStr);
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const week = Math.ceil(d.getDate() / 7);
-    return `${dateStr.slice(0,4)}-${m}-${week}`;
-  }
-  const monthGroups = {};
+
+  const CAT_ORDER = ["국어","수학","영어","과학탐구"];
+  const catColors = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
+  const catGroups = { "국어":[],"수학":[],"영어":[],"과학탐구":[] };
+
   snap.docs.forEach(d => {
     const data = { id: d.id, ...d.data() };
-    const mKey  = getMonthKey(data.deliveryDate);
-    const wKey  = getWeekKey(data.deliveryDate);
-    if (!monthGroups[mKey]) monthGroups[mKey] = {};
-    if (!monthGroups[mKey][wKey]) monthGroups[mKey][wKey] = [];
-    monthGroups[mKey][wKey].push(data);
+    const cat = data.category || "기타";
+    if (catGroups[cat]) catGroups[cat].push(data);
   });
-  const catColors = { "국어": "#2BADA0", "수학": "#3b6fd4", "영어": "#e67e22", "과학탐구": "#9b59b6" };
-  const todayMonthKey = new Date().toISOString().slice(0, 7);
-  el.innerHTML = Object.keys(monthGroups).sort().map(mKey => {
-    const mLabel = mKey === "9999-99" ? "날짜 미정" : (monthNames[mKey.slice(5,7)] || mKey.slice(5,7)+"월");
-    const weekHtml = Object.keys(monthGroups[mKey]).sort().map(wKey => {
-      const items = monthGroups[mKey][wKey].sort((a,b) => (a.order||0)-(b.order||0));
-      const weekLabel = getWeekLabel(items[0]?.deliveryDate);
-      const itemRows = items.map(item => {
-        const catColor = catColors[item.category] || "#888";
-        const price = getContentPrice(item.name, adminPrices);
-        const priceStr = price ? `<span style="font-size:11px;color:#aaa;flex-shrink:0;">${price.toLocaleString()}원</span>` : "";
-        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid #f8f8f6;">
-          <input type="checkbox" class="content-check" data-id="${item.id}" style="width:15px;height:15px;accent-color:#2BADA0;flex-shrink:0;cursor:pointer;" />
-          <span style="font-size:10px;font-weight:700;color:${catColor};padding:2px 6px;background:${catColor}18;border-radius:6px;flex-shrink:0;">${item.category||""}</span>
-          <div onclick="showContentLog('${item.id}','${item.name.replace(/'/g,"\\'")}')" style="flex:1;font-size:13px;color:#333;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;" title="수정 이력 보기">${item.name}</div>
-          ${priceStr}
-          <input type="date" value="${item.deliveryDate || ''}"
-            style="padding:3px 6px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fafafa;outline:none;width:128px;flex-shrink:0;"
-            onchange="updateDeliveryDate('${item.id}', this.value)" />
-        </div>`;
-      }).join("");
-      return `<div style="margin-bottom:8px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
-        <div style="padding:7px 12px;background:#f4f4f2;border-bottom:1px solid #e8e8e6;display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:13px;font-weight:700;color:#555;">${weekLabel}</span>
-          <span style="font-size:11px;color:#bbb;">${items.length}개</span>
-        </div>
-        ${itemRows}
-      </div>`;
-    }).join("");
-    const isCurrentMonth = mKey === todayMonthKey;
-    const totalCount = Object.values(monthGroups[mKey]).flat().length;
-    return `<div style="margin-bottom:1rem;">
-      <div onclick="toggleMonthSection('month_${mKey}')"
-        style="font-size:14px;font-weight:800;color:#1a1a1a;padding:8px 10px;border-radius:10px;margin-bottom:6px;
-               display:flex;align-items:center;justify-content:space-between;cursor:pointer;
-               background:${isCurrentMonth ? '#e4f5f3' : '#f4f4f2'};">
-        <span>📅 ${mLabel}${isCurrentMonth ? ' <span style=\"font-size:11px;font-weight:500;color:#2BADA0;\">현재월</span>' : ''}</span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:12px;font-weight:500;color:#aaa;">${totalCount}개</span>
-          <span id="arrow_month_${mKey}" style="font-size:13px;color:#aaa;">${isCurrentMonth ? '▲' : '▼'}</span>
-        </div>
+  CAT_ORDER.forEach(cat => catGroups[cat].sort((a,b) => (a.order||0)-(b.order||0)));
+
+  function renderItem(item) {
+    const price = getContentPrice(item.name, adminPrices);
+    const priceStr = price ? `<span style="font-size:10px;color:#aaa;">${price.toLocaleString()}원</span>` : "";
+    const dateVal = item.deliveryDate || "";
+    const dateLabel = dateVal ? `${new Date(dateVal).getMonth()+1}/${new Date(dateVal).getDate()}` : "-";
+    const safeId = item.id.replace(/'/g,"\'");
+    const safeName = item.name.replace(/'/g,"\'");
+    return `<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-bottom:1px solid #f5f5f3;min-width:0;">
+      <input type="checkbox" class="content-check" data-id="${item.id}"
+        style="width:13px;height:13px;accent-color:#2BADA0;flex-shrink:0;cursor:pointer;" />
+      <div style="flex:1;min-width:0;cursor:pointer;overflow:hidden;"
+        onclick="showContentLog('${safeId}','${safeName}')">
+        <div style="font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+          title="${item.name}">${item.name}</div>
+        ${priceStr}
       </div>
-      <div id="month_${mKey}" style="display:${isCurrentMonth ? '' : 'none'};">
-        ${weekHtml}
+      <span class="date-label" style="font-size:10px;color:#bbb;flex-shrink:0;cursor:pointer;padding:1px 4px;border-radius:4px;border:1px solid #eee;"
+        onclick="const inp=this.nextElementSibling;inp.style.display=inp.style.display?'':'block';this.style.display='none';">${dateLabel}</span>
+      <input type="date" value="${dateVal}"
+        style="display:none;padding:2px 4px;font-size:11px;border:1px solid #ddd;border-radius:5px;background:#fafafa;outline:none;width:108px;flex-shrink:0;"
+        onchange="updateDeliveryDate('${safeId}',this.value);const lbl=this.previousElementSibling;lbl.textContent=this.value?(new Date(this.value).getMonth()+1)+'/'+(new Date(this.value).getDate()):'-';lbl.style.display='';this.style.display='none';" />
+    </div>`;
+  }
+
+  const colHtml = CAT_ORDER.map(cat => {
+    const color = catColors[cat];
+    const items = catGroups[cat];
+    return `<div style="min-width:0;border:1px solid ${color}30;border-radius:10px;overflow:hidden;">
+      <div style="padding:7px 10px;background:${color}12;border-bottom:1.5px solid ${color}30;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;font-weight:700;color:${color};">${cat}</span>
+        <span style="font-size:11px;color:${color}99;">${items.length}개</span>
+      </div>
+      <div style="max-height:62vh;overflow-y:auto;">
+        ${items.map(renderItem).join("") || '<div class="empty" style="padding:1rem;font-size:12px;">없음</div>'}
       </div>
     </div>`;
   }).join("");
-}
 
+  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">${colHtml}</div>`;
+}
 function toggleMonthSection(id) {
   const el = document.getElementById(id);
   const arrowEl = document.getElementById('arrow_' + id);
