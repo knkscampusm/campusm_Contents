@@ -1133,7 +1133,9 @@ function renderNotice() {
       const canRefund = !!firstRefundable;
       if (!selections[series]) selections[series] = "신청";
       const sel   = selections[series];
-      const price = seriesPrices[series];
+      const price = firstRefundable
+        ? getContentPrice(firstRefundable.name, seriesPrices)
+        : (seriesPrices[series] || DEFAULT_PRICES[series]);
 
       if (cat === "과학탐구") {
         if (series === "CRUX 과학Ⅰ") {
