@@ -1251,9 +1251,33 @@ function renderNotice() {
     return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem;">${cols}</div>`;
   }).join("");
 
+  // cutoff 날짜에 해당하는 콘텐츠 목록
+  const cutoffContents = contents
+    .filter(c => c.deliveryDate === refundCutoff)
+    .sort((a, b) => a.order - b.order);
+  const catColors2 = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
+  const cutoffCatGroups = {};
+  cutoffContents.forEach(c => {
+    if (!cutoffCatGroups[c.category]) cutoffCatGroups[c.category] = [];
+    cutoffCatGroups[c.category].push(c);
+  });
+  const cutoffCatOrder = ["국어","수학","영어","과학탐구"].filter(cat => cutoffCatGroups[cat]);
+  const cutoffListHtml = cutoffCatOrder.length ? `
+    <div style="margin-top:8px;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+      ${cutoffCatOrder.map(cat => {
+        const color = catColors2[cat];
+        const items = cutoffCatGroups[cat];
+        return `<div>
+          <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:3px;padding-bottom:2px;border-bottom:1px solid ${color}30;">${cat}</div>
+          ${items.map(c => `<div style="font-size:12px;color:#555;padding:1px 0;">${c.name}</div>`).join("")}
+        </div>`;
+      }).join("")}
+    </div>` : "";
+
   el.innerHTML = `
     <div style="padding:10px 14px;background:#e4f5f3;border-radius:10px;margin-bottom:1rem;font-size:13px;font-weight:700;color:#2BADA0;">
       ${formatDateKR(refundCutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다
+      ${cutoffListHtml}
     </div>
     <div>${gridHtml}</div>
     <div style="margin-top:1.25rem;">
