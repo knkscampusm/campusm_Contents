@@ -1621,11 +1621,6 @@ async function loadAdminContents() {
         <div style="font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.name}">${item.name}</div>
         ${priceStr}
       </div>
-      <span style="font-size:10px;color:#bbb;flex-shrink:0;cursor:pointer;padding:1px 5px;border-radius:4px;border:1px solid #eee;"
-        onclick="const inp=this.nextElementSibling;const show=inp.style.display==='none'||!inp.style.display;inp.style.display=show?'block':'none';this.style.display=show?'none':'';">${dateLabel}</span>
-      <input type="date" value="${dateVal}"
-        style="display:none;padding:2px 4px;font-size:11px;border:1px solid #ddd;border-radius:5px;background:#fafafa;outline:none;width:108px;flex-shrink:0;"
-        onchange="updateDeliveryDate('${safeId}',this.value);const lbl=this.previousElementSibling;lbl.textContent=this.value?(new Date(this.value).getMonth()+1)+'/'+(new Date(this.value).getDate()):'-';lbl.style.display='';this.style.display='none';" />
     </div>`;
   }
 
@@ -1652,10 +1647,26 @@ async function loadAdminContents() {
         </div>`;
       }).join("");
 
+      // 주차 대표 배부일 (첫 번째 아이템 기준)
+      const weekDate = Object.values(weekCats).flat()[0]?.deliveryDate || "";
+      const weekDateLabel = weekDate ? `${new Date(weekDate).getMonth()+1}/${new Date(weekDate).getDate()}` : "-";
+      // 주차 내 모든 콘텐츠 id 목록 (일괄 날짜 수정용)
+      const weekAllIds = Object.values(weekCats).flat().map(c => c.id);
+      const weekIdsJson = JSON.stringify(weekAllIds).replace(/"/g,"&quot;");
+
       return `<div style="margin-bottom:8px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
         <div style="padding:6px 12px;background:#f4f4f2;border-bottom:1px solid #e8e8e6;display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:13px;font-weight:700;color:#555;">${weekLabel}</span>
-          <span style="font-size:11px;color:#bbb;">${weekItemCount}개</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;font-weight:700;color:#555;">${weekLabel}</span>
+            <span style="font-size:11px;color:#aaa;">${weekItemCount}개</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="week-date-label" style="font-size:12px;font-weight:600;color:#2BADA0;cursor:pointer;padding:2px 8px;border-radius:6px;border:1px solid #2BADA030;background:#e4f5f3;"
+              onclick="const inp=this.nextElementSibling;const show=inp.style.display==='none'||!inp.style.display;inp.style.display=show?'':'none';this.style.display=show?'none':'';">${weekDateLabel}</span>
+            <input type="date" value="${weekDate}"
+              style="display:none;padding:3px 6px;font-size:12px;border:1px solid #2BADA0;border-radius:6px;background:#fff;outline:none;width:128px;"
+              onchange="bulkUpdateWeekDate(${weekIdsJson},this.value,this);" />
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:6px 8px;gap:8px;">
           ${gridCols}
@@ -1680,6 +1691,31 @@ async function loadAdminContents() {
     </div>`;
   }).join("");
 }
+async function bulkUpdateWeekDate(ids, date, inputEl) {
+  if (!date || !ids.length) return;
+  const batch = db.batch();
+  ids.forEach(id => batch.update(db.collection("contents").doc(id), { deliveryDate: date }));
+  await batch.commit();
+  for (const id of ids) {
+    const prev = await db.collection("contents").doc(id).get();
+    const contentName = prev.exists ? (prev.data().name || "") : "";
+    const oldDate = prev.exists ? (prev.data().deliveryDate || "") : "";
+    await db.collection("contentLogs").add({
+      contentId: id, contentName, oldDate, newDate: date,
+      changedBy: _currentStaff || "알 수 없음",
+      changedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  // 라벨 업데이트
+  const lbl = inputEl.previousElementSibling;
+  const d = new Date(date);
+  lbl.textContent = `${d.getMonth()+1}/${d.getDate()}`;
+  lbl.style.display = "";
+  inputEl.style.display = "none";
+  toast(`✓ ${ids.length}개 배부일 수정 완료`);
+}
+
+
 function toggleMonthSection(id) {
   const el = document.getElementById(id);
   const arrowEl = document.getElementById('arrow_' + id);
