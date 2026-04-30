@@ -1578,54 +1578,107 @@ async function loadAdminContents() {
 
   const CAT_ORDER = ["국어","수학","영어","과학탐구"];
   const catColors = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
-  const catGroups = { "국어":[],"수학":[],"영어":[],"과학탐구":[] };
+  const monthNames = {"01":"1월","02":"2월","03":"3월","04":"4월","05":"5월","06":"6월","07":"7월","08":"8월","09":"9월","10":"10월","11":"11월","12":"12월"};
 
-  snap.docs.forEach(d => {
-    const data = { id: d.id, ...d.data() };
-    const cat = data.category || "기타";
-    if (catGroups[cat]) catGroups[cat].push(data);
+  function getMonthKey(d) { return d ? d.slice(0,7) : "9999-99"; }
+  function getWeekKey(d) {
+    if (!d) return "9999-99-9";
+    const dt = new Date(d);
+    const m = String(dt.getMonth()+1).padStart(2,"0");
+    return `${d.slice(0,4)}-${m}-${Math.ceil(dt.getDate()/7)}`;
+  }
+  function getWeekLabel(d) {
+    if (!d) return "날짜 미정";
+    const dt = new Date(d);
+    const m = String(dt.getMonth()+1).padStart(2,"0");
+    return `${monthNames[m]||m+"월"} ${Math.ceil(dt.getDate()/7)}주차`;
+  }
+
+  // 월-주차-과목 구조로 그룹화
+  const monthGroups = {};
+  snap.docs.forEach(doc => {
+    const data = { id: doc.id, ...doc.data() };
+    const mKey = getMonthKey(data.deliveryDate);
+    const wKey = getWeekKey(data.deliveryDate);
+    const cat  = data.category || "기타";
+    if (!monthGroups[mKey]) monthGroups[mKey] = {};
+    if (!monthGroups[mKey][wKey]) monthGroups[mKey][wKey] = {};
+    if (!monthGroups[mKey][wKey][cat]) monthGroups[mKey][wKey][cat] = [];
+    monthGroups[mKey][wKey][cat].push(data);
   });
-  CAT_ORDER.forEach(cat => catGroups[cat].sort((a,b) => (a.order||0)-(b.order||0)));
 
   function renderItem(item) {
     const price = getContentPrice(item.name, adminPrices);
-    const priceStr = price ? `<span style="font-size:10px;color:#aaa;">${price.toLocaleString()}원</span>` : "";
+    const priceStr = price ? `<div style="font-size:10px;color:#aaa;">${price.toLocaleString()}원</div>` : "";
     const dateVal = item.deliveryDate || "";
     const dateLabel = dateVal ? `${new Date(dateVal).getMonth()+1}/${new Date(dateVal).getDate()}` : "-";
-    const safeId = item.id.replace(/'/g,"\'");
+    const safeId   = item.id.replace(/'/g,"\'");
     const safeName = item.name.replace(/'/g,"\'");
-    return `<div style="display:flex;align-items:center;gap:5px;padding:5px 8px;border-bottom:1px solid #f5f5f3;min-width:0;">
+    return `<div style="display:flex;align-items:center;gap:5px;padding:4px 6px;border-bottom:1px solid #f5f5f3;min-width:0;">
       <input type="checkbox" class="content-check" data-id="${item.id}"
         style="width:13px;height:13px;accent-color:#2BADA0;flex-shrink:0;cursor:pointer;" />
-      <div style="flex:1;min-width:0;cursor:pointer;overflow:hidden;"
-        onclick="showContentLog('${safeId}','${safeName}')">
-        <div style="font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-          title="${item.name}">${item.name}</div>
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="showContentLog('${safeId}','${safeName}')">
+        <div style="font-size:12px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.name}">${item.name}</div>
         ${priceStr}
       </div>
-      <span class="date-label" style="font-size:10px;color:#bbb;flex-shrink:0;cursor:pointer;padding:1px 4px;border-radius:4px;border:1px solid #eee;"
-        onclick="const inp=this.nextElementSibling;inp.style.display=inp.style.display?'':'block';this.style.display='none';">${dateLabel}</span>
+      <span style="font-size:10px;color:#bbb;flex-shrink:0;cursor:pointer;padding:1px 5px;border-radius:4px;border:1px solid #eee;"
+        onclick="const inp=this.nextElementSibling;const show=inp.style.display==='none'||!inp.style.display;inp.style.display=show?'block':'none';this.style.display=show?'none':'';">${dateLabel}</span>
       <input type="date" value="${dateVal}"
         style="display:none;padding:2px 4px;font-size:11px;border:1px solid #ddd;border-radius:5px;background:#fafafa;outline:none;width:108px;flex-shrink:0;"
         onchange="updateDeliveryDate('${safeId}',this.value);const lbl=this.previousElementSibling;lbl.textContent=this.value?(new Date(this.value).getMonth()+1)+'/'+(new Date(this.value).getDate()):'-';lbl.style.display='';this.style.display='none';" />
     </div>`;
   }
 
-  const colHtml = CAT_ORDER.map(cat => {
-    const color = catColors[cat];
-    const items = catGroups[cat];
-    return `<div style="min-width:0;border:1px solid ${color}30;border-radius:10px;overflow:hidden;">
-      <div style="padding:7px 10px;background:${color}12;border-bottom:1.5px solid ${color}30;display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:12px;font-weight:700;color:${color};">${cat}</span>
-        <span style="font-size:11px;color:${color}99;">${items.length}개</span>
+  const todayMonthKey = new Date().toISOString().slice(0,7);
+
+  el.innerHTML = Object.keys(monthGroups).sort().map(mKey => {
+    const mLabel = mKey === "9999-99" ? "날짜 미정" : (monthNames[mKey.slice(5,7)] || mKey.slice(5,7)+"월");
+    const isCurrentMonth = mKey === todayMonthKey;
+    const totalCount = Object.values(monthGroups[mKey]).flatMap(w => Object.values(w).flat()).length;
+
+    const weekHtml = Object.keys(monthGroups[mKey]).sort().map(wKey => {
+      const weekCats = monthGroups[mKey][wKey];
+      const weekLabel = getWeekLabel(Object.values(weekCats).flat()[0]?.deliveryDate);
+      const weekItemCount = Object.values(weekCats).flat().length;
+
+      // 4컬럼 그리드 (과목별)
+      const gridCols = CAT_ORDER.map(cat => {
+        const color = catColors[cat] || "#888";
+        const items = (weekCats[cat] || []).sort((a,b) => (a.order||0)-(b.order||0));
+        if (!items.length) return `<div></div>`;
+        return `<div>
+          <div style="font-size:10px;font-weight:700;color:${color};padding:3px 4px;margin-bottom:2px;border-bottom:1px solid ${color}30;">${cat}</div>
+          ${items.map(renderItem).join("")}
+        </div>`;
+      }).join("");
+
+      return `<div style="margin-bottom:8px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
+        <div style="padding:6px 12px;background:#f4f4f2;border-bottom:1px solid #e8e8e6;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:13px;font-weight:700;color:#555;">${weekLabel}</span>
+          <span style="font-size:11px;color:#bbb;">${weekItemCount}개</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:6px 8px;gap:8px;">
+          ${gridCols}
+        </div>
+      </div>`;
+    }).join("");
+
+    return `<div style="margin-bottom:1rem;">
+      <div onclick="toggleMonthSection('month_${mKey}')"
+        style="font-size:14px;font-weight:800;color:#1a1a1a;padding:8px 10px;border-radius:10px;margin-bottom:6px;
+               display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+               background:${isCurrentMonth ? '#e4f5f3' : '#f4f4f2'};">
+        <span>📅 ${mLabel}${isCurrentMonth ? ' <span style=\"font-size:11px;font-weight:500;color:#2BADA0;\">현재월</span>' : ''}</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:12px;font-weight:500;color:#aaa;">${totalCount}개</span>
+          <span id="arrow_month_${mKey}" style="font-size:13px;color:#aaa;">${isCurrentMonth ? '▲' : '▼'}</span>
+        </div>
       </div>
-      <div style="max-height:62vh;overflow-y:auto;">
-        ${items.map(renderItem).join("") || '<div class="empty" style="padding:1rem;font-size:12px;">없음</div>'}
+      <div id="month_${mKey}" style="display:${isCurrentMonth ? '' : 'none'};">
+        ${weekHtml}
       </div>
     </div>`;
   }).join("");
-
-  el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">${colHtml}</div>`;
 }
 function toggleMonthSection(id) {
   const el = document.getElementById(id);
