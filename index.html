@@ -1661,10 +1661,8 @@ async function loadAdminContents() {
             <span style="font-size:11px;color:#aaa;">${weekItemCount}개</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
-            <span class="week-date-label" style="font-size:12px;font-weight:600;color:#2BADA0;cursor:pointer;padding:2px 8px;border-radius:6px;border:1px solid #2BADA030;background:#e4f5f3;"
-              onclick="const inp=this.nextElementSibling;const show=inp.style.display==='none'||!inp.style.display;inp.style.display=show?'':'none';this.style.display=show?'none':'';">${weekDateLabel}</span>
             <input type="date" value="${weekDate}"
-              style="display:none;padding:3px 6px;font-size:12px;border:1px solid #2BADA0;border-radius:6px;background:#fff;outline:none;width:128px;"
+              style="padding:3px 6px;font-size:12px;border:1px solid #2BADA030;border-radius:6px;background:#e4f5f3;outline:none;color:#2BADA0;font-weight:600;cursor:pointer;"
               onchange="bulkUpdateWeekDate(${weekIdsJson},this.value,this);" />
           </div>
         </div>
@@ -1706,12 +1704,6 @@ async function bulkUpdateWeekDate(ids, date, inputEl) {
       changedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   }
-  // 라벨 업데이트
-  const lbl = inputEl.previousElementSibling;
-  const d = new Date(date);
-  lbl.textContent = `${d.getMonth()+1}/${d.getDate()}`;
-  lbl.style.display = "";
-  inputEl.style.display = "none";
   toast(`✓ ${ids.length}개 배부일 수정 완료`);
 }
 
