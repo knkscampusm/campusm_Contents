@@ -697,6 +697,10 @@ const DEFAULT_PRICES = {
   "강대모의고사K 수학": 14000,
   "강대모의고사K 영어": 13000,
   "강대모의고사X 수학": 0,
+  "강대모의고사X 수학 1·2회":              20880,
+  "강대모의고사X 수학 3·4회+써킷X 1·2·3회": 36540,
+  "강대모의고사X 수학 5·6회+써킷X 4·5·6회": 36540,
+  "강대모의고사X 수학 7·8회":              20880,
 };
 
 const INITIAL_CONTENTS = [
@@ -879,6 +883,10 @@ const INITIAL_CONTENTS = [
   { id: "en_gmk_15", name: "강대모의고사K 영어 15회", category: "영어", order: 177, deliveryDate: "2026-10-22" },
   { id: "en_gmk_16", name: "강대모의고사K 영어 16회", category: "영어", order: 178, deliveryDate: "2026-10-29" },
   { id: "en_gmk_17", name: "강대모의고사K 영어 17회", category: "영어", order: 179, deliveryDate: "2026-11-05" },
+  { id: "ma_gmx_1_2",  name: "강대모의고사X 수학 1·2회",               category: "수학", order: 180, deliveryDate: "2026-06-05" },
+  { id: "ma_gmx_3_4x", name: "강대모의고사X 수학 3·4회+써킷X 1·2·3회", category: "수학", order: 181, deliveryDate: "2026-06-11" },
+  { id: "ma_gmx_5_6x", name: "강대모의고사X 수학 5·6회+써킷X 4·5·6회", category: "수학", order: 182, deliveryDate: "2026-06-18" },
+  { id: "ma_gmx_7_8",  name: "강대모의고사X 수학 7·8회",               category: "수학", order: 183, deliveryDate: "2026-06-25" },
 ];
 
 // ── 날짜 비교 헬퍼 (enrollDate가 문자열 날짜 형식이 아닌 경우 대응) ──
@@ -1038,12 +1046,16 @@ function getContentPrice(name, priceMap) {
   if (series === "CONNEX 수학(확통·기하)")        return unitPrice * rounds;
   if (series === "CONNEX 수학(미적분)")            return unitPrice * rounds;
   if (series === "CONNEX 수학" && name.includes("수I·수II")) return unitPrice * rounds * 2;
+  if (series === "강대모의고사X 수학") {
+    if (name.includes("3·4회+써킷X") || name.includes("5·6회+써킷X")) return 36540;
+    return 20880;
+  }
   if (series === "강대모의고사K 수학") return 28000;
   if (series === "CIRCUIT 수학" || series === "CIRCUIT 영어" || series === "CIRCUIT 과학Ⅰ") return unitPrice * rounds;
   return unitPrice;
 }
 
-const SERIES_DISPLAY = { "CIRCUIT 과학Ⅰ": ["CIRCUIT 과학Ⅰ"] };
+const SERIES_DISPLAY = { "CIRCUIT 과학Ⅰ": ["CIRCUIT 과학Ⅰ"], "강대모의고사X 수학": ["강대모의고사X"] };
 function getDisplayNames(series) { return SERIES_DISPLAY[series] || [series]; }
 
 function getFirstRound(name) {
@@ -1205,6 +1217,17 @@ function renderNotice() {
         ${makeToggle(series, sel, canRefund)}
       </div>`;
     }).join("");
+
+  // 비고 input value 안전하게 세팅 (특수문자 대응)
+  el.querySelectorAll("input.memo-input").forEach(input => {
+    const sid = input.closest(".student-card")?.dataset.sid;
+    const card = changed.find(s => s.studentId === sid);
+    if (!card) return;
+    const mergedPeriods = card._mergedPeriods || [card.cutoffDate || "기준일 미설정"];
+    function stripMemoMeta(m) { if (!m) return ""; return m.replace(/\s*\([^)]+·[^)]+\)\s*$/, "").replace(/\s*\([^)]+\)\s*$/, "").trim(); }
+    const memoRaw = mergedPeriods.map(p => card.memoByPeriod?.[p]).filter(Boolean).join(" / ") || "";
+    input.value = stripMemoMeta(memoRaw);
+  });
 
     return { cat, color, items };
   });
@@ -2311,10 +2334,8 @@ async function loadChanges() {
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
-          <button class="process-btn"
-            data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}" data-processed="${processed}"
-            style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};"
-            onclick="toggleProcessedMerged(this.dataset.docIds,this.dataset.periods,this.dataset.processed!=='true')">
+          <button onclick="toggleProcessedMerged('${toggleDocIds}','${togglePeriods}',${!processed})"
+            style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
             ${processed ? '처리완료 ✓' : '미처리'}
           </button>
           ${processed && processedAt    ? `<div style="font-size:10px;color:#2BADA0;text-align:center;">처리: ${processedAt}</div>`   : ""}
@@ -2323,16 +2344,6 @@ async function loadChanges() {
       </div>
     </div>`;
   }).join("");
-
-  // 비고 input value 안전하게 세팅 (특수문자 대응)
-  el.querySelectorAll("input.memo-input").forEach(input => {
-    const sid = input.closest(".student-card")?.dataset.sid;
-    const card = changed.find(s => s.studentId === sid);
-    if (!card) return;
-    const mergedPeriods = card._mergedPeriods || [card.cutoffDate || "기준일 미설정"];
-    const memoRaw = mergedPeriods.map(p => card.memoByPeriod?.[p]).filter(Boolean).join(" / ") || "";
-    input.value = memoRaw.replace(/\s*\([^)]+·[^)]+\)\s*$/, "").replace(/\s*\([^)]+\)\s*$/, "").trim();
-  });
 }
 
 function searchChangeCard(val) {
@@ -2345,9 +2356,8 @@ function searchChangeCard(val) {
 
 async function toggleProcessedMerged(docIdsJson, periodsJson, newVal) {
   let docIds, periods;
-  try { docIds = JSON.parse(docIdsJson); periods = JSON.parse(periodsJson); }
+  try { docIds = JSON.parse(docIdsJson.replace(/&quot;/g, '"')); periods = JSON.parse(periodsJson.replace(/&quot;/g, '"')); }
   catch(e) { docIds = [docIdsJson]; periods = [periodsJson]; }
-  if (typeof newVal === "string") newVal = newVal === "true";
   if (!newVal && docIds.length > 0) {
     const thisDoc = await db.collection("submissionHistory").doc(docIds[0]).get();
     if (thisDoc.exists) {
