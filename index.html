@@ -2555,7 +2555,11 @@ async function loadDeliverySchedule() {
   const el = document.getElementById("scheduleBody");
   if (!el) return;
 
-  const snap = await db.collection("contents").orderBy("deliveryDate").orderBy("order").get();
+  const [snap, refundDoc] = await Promise.all([
+    db.collection("contents").orderBy("deliveryDate").orderBy("order").get(),
+    db.collection("settings").doc("refund").get()
+  ]);
+  const cutoffDate = refundDoc.exists ? (refundDoc.data().cutoffDate || null) : null;
   const contents = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(c => c.deliveryDate);
 
   const today = new Date(); today.setHours(0,0,0,0);
@@ -2583,6 +2587,7 @@ async function loadDeliverySchedule() {
     const weekDay = ["일","월","화","수","목","금","토"][dt.getDay()];
     const dateLabel = `${monthNames[m]||m+"월"} ${dt.getDate()}일 (${weekDay})`;
     const isToday = dateStr === today.toISOString().slice(0,10);
+    const isCutoff = cutoffDate && dateStr === cutoffDate;
     const cats = dateGroups[dateStr];
 
     const catCols = CAT_ORDER.map(cat => {
@@ -2596,9 +2601,12 @@ async function loadDeliverySchedule() {
     }).join("");
 
     return `<div style="margin-bottom:10px;border:1px solid ${isToday?'#2BADA0':'#e5e5e3'};border-radius:10px;overflow:hidden;${isToday?'box-shadow:0 0 0 2px #2BADA030;':''}">
-      <div style="padding:6px 12px;background:${isToday?'#e4f5f3':'#f8f8f6'};border-bottom:1px solid ${isToday?'#2BADA030':'#e5e5e3'};display:flex;align-items:center;gap:6px;">
-        <span style="font-size:13px;font-weight:700;color:${isToday?'#2BADA0':'#333'};">${dateLabel}</span>
-        ${isToday?'<span style="font-size:10px;background:#2BADA0;color:#fff;padding:1px 7px;border-radius:10px;font-weight:600;">오늘</span>':''}
+      <div style="padding:6px 12px;background:${isToday?'#e4f5f3':isCutoff?'#fff8e1':'#f8f8f6'};border-bottom:1px solid ${isToday?'#2BADA030':isCutoff?'#f9a82530':'#e5e5e3'};display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:13px;font-weight:700;color:${isToday?'#2BADA0':isCutoff?'#f9a825':'#333'};">${dateLabel}</span>
+          ${isToday?'<span style="font-size:10px;background:#2BADA0;color:#fff;padding:1px 7px;border-radius:10px;font-weight:600;">오늘</span>':''}
+        </div>
+        ${isCutoff?'<span style="font-size:11px;font-weight:600;color:#f9a825;">→ 해당 날짜부터 신청/취소 가능합니다</span>':''}
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 12px;">
         ${catCols}
