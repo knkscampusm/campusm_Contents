@@ -371,9 +371,6 @@
       <button onclick="openAddPanel()" style="display:flex;align-items:center;gap:6px;padding:9px 14px;font-size:13px;font-weight:600;border:1.5px solid #3b6fd4;border-radius:10px;background:#fff;color:#3b6fd4;cursor:pointer;">
         <span style="font-size:16px;">➕</span> 콘텐츠 추가
       </button>
-      <button onclick="registerGmxContents()" style="display:flex;align-items:center;gap:6px;padding:9px 14px;font-size:13px;font-weight:600;border:1.5px solid #f9a825;border-radius:10px;background:#fff;color:#f9a825;cursor:pointer;">
-        <span style="font-size:16px;">🔥</span> 강대X 등록
-      </button>
     </div>
 
     <div class="card">
@@ -2489,26 +2486,6 @@ function switchTab(idx) {
   if (idx === 3) { loadWorkListTab(); loadContentStats(false); }
 }
 
-
-async function registerGmxContents() {
-  const items = [{"id": "ma_gmx_1_2", "name": "강대모의고사X 수학 1·2회", "category": "수학", "order": 180, "deliveryDate": "2026-06-05"}, {"id": "ma_gmx_3_4x", "name": "강대모의고사X 수학 3·4회+써킷X 1·2·3회", "category": "수학", "order": 181, "deliveryDate": "2026-06-11"}, {"id": "ma_gmx_5_6x", "name": "강대모의고사X 수학 5·6회+써킷X 4·5·6회", "category": "수학", "order": 182, "deliveryDate": "2026-06-18"}, {"id": "ma_gmx_7_8", "name": "강대모의고사X 수학 7·8회", "category": "수학", "order": 183, "deliveryDate": "2026-06-25"}];
-  if (!confirm(`강대모의고사X 수학 콘텐츠 ${items.length}개를 Firestore에 등록합니다.\n\n${items.map(c=>c.name).join('\n')}\n\n계속하시겠습니까?`)) return;
-  let added = 0, skipped = 0;
-  for (const item of items) {
-    const existing = await db.collection("contents").doc(item.id).get();
-    if (existing.exists) { skipped++; continue; }
-    await db.collection("contents").doc(item.id).set({
-      name: item.name,
-      category: item.category,
-      order: item.order,
-      deliveryDate: item.deliveryDate,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    added++;
-  }
-  toast(`✓ ${added}개 등록 완료${skipped ? ` (${skipped}개 이미 존재)` : ''}`);
-  loadAdminContents();
-}
 (async function loadStaticRefundGuide() {
   const doc = await db.collection("settings").doc("refund").get();
   const cutoff = doc.exists ? doc.data().cutoffDate : null;
