@@ -2602,11 +2602,11 @@ async function loadDeliverySchedule() {
 
     return `<div style="margin-bottom:10px;border:1px solid ${isToday?'#2BADA0':'#e5e5e3'};border-radius:10px;overflow:hidden;${isToday?'box-shadow:0 0 0 2px #2BADA030;':''}">
       <div style="padding:6px 12px;background:${isToday?'#e4f5f3':isCutoff?'#fff8e1':'#f8f8f6'};border-bottom:1px solid ${isToday?'#2BADA030':isCutoff?'#f9a82530':'#e5e5e3'};display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           <span style="font-size:13px;font-weight:700;color:${isToday?'#2BADA0':isCutoff?'#f9a825':'#333'};">${dateLabel}</span>
           ${isToday?'<span style="font-size:10px;background:#2BADA0;color:#fff;padding:1px 7px;border-radius:10px;font-weight:600;">오늘</span>':''}
+          ${isCutoff?'<span style="font-size:11px;font-weight:600;color:#f9a825;">→ 해당 날짜부터 신청/취소 가능합니다</span>':''}
         </div>
-        ${isCutoff?'<span style="font-size:11px;font-weight:600;color:#f9a825;">→ 해당 날짜부터 신청/취소 가능합니다</span>':''}
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px 12px;">
         ${catCols}
