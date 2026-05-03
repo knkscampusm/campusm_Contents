@@ -1684,13 +1684,13 @@ async function loadAdminContents() {
       }).join("");
 
       return `<div style="margin-bottom:8px;border:1px solid #ebebeb;border-radius:10px;overflow:hidden;">
-        <div style="padding:6px 12px;background:#f4f4f2;border-bottom:1px solid #e8e8e6;display:flex;align-items:center;justify-content:space-between;">
+        <div style="padding:6px 12px;background:#f4f4f2;border-bottom:1px solid #e8e8e6;display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:6px;">
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:13px;font-weight:700;color:#555;">${weekLabel}</span>
-            <span style="font-size:11px;color:#aaa;">${weekItemCount}개</span>
+            <span style="font-size:13px;font-weight:700;color:#555;white-space:nowrap;">${weekLabel}</span>
+            <span style="font-size:11px;color:#aaa;white-space:nowrap;">${weekItemCount}개</span>
           </div>
           <input type="date" value="${weekDate}"
-            style="padding:3px 6px;font-size:12px;border:1px solid #2BADA030;border-radius:6px;background:#e4f5f3;outline:none;color:#2BADA0;font-weight:600;cursor:pointer;"
+            style="padding:3px 6px;font-size:12px;border:1px solid #2BADA030;border-radius:6px;background:#e4f5f3;outline:none;color:#2BADA0;font-weight:600;cursor:pointer;flex-shrink:0;"
             onchange="bulkUpdateWeekDate(${weekIdsJson},this.value,this);" />
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:6px 8px;">
@@ -1704,7 +1704,7 @@ async function loadAdminContents() {
         style="font-size:14px;font-weight:800;color:#1a1a1a;padding:8px 10px;border-radius:10px;margin-bottom:6px;
                display:flex;align-items:center;justify-content:space-between;cursor:pointer;
                background:${isCurrentMonth ? '#e4f5f3' : '#f4f4f2'};">
-        <span>📅 ${mLabel}${isCurrentMonth ? ' <span style=\"font-size:11px;font-weight:500;color:#2BADA0;\">현재월</span>' : ''}</span>
+        <span>📅 ${mLabel}${isCurrentMonth ? ' &nbsp;<span style=\"font-size:11px;font-weight:500;color:#2BADA0;\">현재월</span>' : ''}</span>
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:12px;font-weight:500;color:#aaa;">${totalCount}개</span>
           <span id="arrow_month_${mKey}" style="font-size:13px;color:#aaa;">${isCurrentMonth ? '▲' : '▼'}</span>
