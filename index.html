@@ -3164,5 +3164,372 @@ async function generateWorkList() {
   toast("✓ 엑셀 생성 완료!");
 }
 </script>
+  <!-- ========== 버그 수정 패치 (원본 HTML 하단 </body> 직전에 삽입) ========== -->
+<script>
+// ============================================================
+// [수정1] 비고 저장 후 새로고침시 사라지는 버그 수정
+// ============================================================
+
+// 전역 stripMemoMeta
+function stripMemoMeta(m) {
+  if (!m) return "";
+  return m.replace(/\s*\([^)]+·[^)]+\)\s*$/, "").replace(/\s*\([^)]+\)\s*$/, "").trim();
+}
+
+// loadChanges 전체 재정의 (수정2, 수정3 포함)
+async function loadChanges() {
+  const el = document.getElementById("changeList");
+  el.innerHTML = '<div class="empty">불러오는 중...</div>';
+  const [sSnap, cSnap, settingDoc, monthDoc] = await Promise.all([
+    db.collection("submissionHistory").orderBy("updatedAt","desc").get(),
+    db.collection("contents").orderBy("order").get(),
+    db.collection("settings").doc("refund").get(),
+    db.collection("settings").doc("monthFilter").get()
+  ]);
+  const cutoff = settingDoc.exists ? settingDoc.data().cutoffDate : null;
+  const contents = cSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const monthNames = {"01":"1월","02":"2월","03":"3월","04":"4월","05":"5월","06":"6월","07":"7월","08":"8월","09":"9월","10":"10월","11":"11월","12":"12월"};
+  const seriesFirstMap = {};
+  contents.sort((a,b) => a.order - b.order).forEach(item => {
+    const series = getSeriesName(item.name);
+    if (!seriesFirstMap[series] && cutoff && item.deliveryDate && item.deliveryDate >= cutoff) seriesFirstMap[series] = item;
+  });
+  const periodFilter = document.querySelector('input[name="periodFilter"]:checked')?.value || "1m";
+  const _1mAgo = new Date(); _1mAgo.setMonth(_1mAgo.getMonth() - 1); _1mAgo.setHours(0,0,0,0);
+  const rawDocs = sSnap.docs
+    .map(d => ({ docId: d.id, ...d.data() }))
+    .filter(s => {
+      if (!s.selections || Object.keys(s.selections).length === 0) return false;
+      if (_showOnlyUnprocessed) return true;
+      if (periodFilter === "1m") { const t = s.updatedAt?.toDate ? s.updatedAt.toDate() : null; return t && t >= _1mAgo; }
+      return true;
+    })
+    .sort((a, b) => {
+      const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+      const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+      return ta - tb;
+    });
+
+  function getFirstOrderByCutoff(series, cutoffDate) {
+    if (!cutoffDate) return Infinity;
+    const item = contents.filter(c => getSeriesName(c.name) === series && c.deliveryDate && c.deliveryDate >= cutoffDate).sort((a,b) => a.order - b.order)[0];
+    return item ? item.order : Infinity;
+  }
+
+  const seriesHistoryByStudentSegment = {};
+  const studentSegmentCounter = {};
+  const groupMap = new Map();
+
+  rawDocs.forEach(s => {
+    const period = s.cutoffDate || "기준일 미설정";
+    const isProcessed = !!(s.processedByPeriod && s.processedByPeriod[period]);
+    if (studentSegmentCounter[s.studentId] === undefined) studentSegmentCounter[s.studentId] = 0;
+    const segNum = studentSegmentCounter[s.studentId];
+    const key = `${s.studentId}__${s.cutoffDate || "기준일 미설정"}__seg${segNum}`;
+    if (isProcessed) { seriesHistoryByStudentSegment[s.studentId] = {}; studentSegmentCounter[s.studentId] = segNum + 1; }
+    if (!isProcessed) {
+      if (!seriesHistoryByStudentSegment[s.studentId]) seriesHistoryByStudentSegment[s.studentId] = {};
+      const studentHist = seriesHistoryByStudentSegment[s.studentId];
+      Object.entries(s.selections || {}).forEach(([series, val]) => {
+        const firstOrder = getFirstOrderByCutoff(series, s.cutoffDate);
+        if (!studentHist[series]) studentHist[series] = [];
+        const hist = studentHist[series];
+        const lastHist = hist[hist.length - 1];
+        if (!lastHist || lastHist.val !== val || lastHist.firstOrder !== firstOrder) hist.push({ val, cutoffDate: s.cutoffDate, firstOrder });
+      });
+    }
+    if (!groupMap.has(key)) {
+      groupMap.set(key, { ...s, selections: { ...s.selections }, _historyCount: 1 });
+    } else {
+      const existing = groupMap.get(key);
+      existing._historyCount = (existing._historyCount || 1) + 1;
+      Object.entries(s.selections || {}).forEach(([series, val]) => { existing.selections[series] = val; });
+      existing.docId = s.docId; existing.updatedAt = s.updatedAt;
+      existing.processedByPeriod = s.processedByPeriod || existing.processedByPeriod;
+      existing.processedAtByPeriod = s.processedAtByPeriod || existing.processedAtByPeriod;
+      existing.unprocessedAtByPeriod = s.unprocessedAtByPeriod || existing.unprocessedAtByPeriod;
+      existing.memoByPeriod = s.memoByPeriod || existing.memoByPeriod;
+      existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
+    }
+  });
+
+  groupMap.forEach((val, key) => { val._seriesHistory = seriesHistoryByStudentSegment[val.studentId] || {}; });
+
+  const allDocs = Array.from(groupMap.values()).filter(s => Object.keys(s.selections).length > 0).sort((a, b) => {
+    const ta = a.updatedAt?.toDate ? a.updatedAt.toDate().getTime() : 0;
+    const tb = b.updatedAt?.toDate ? b.updatedAt.toDate().getTime() : 0;
+    return tb - ta;
+  });
+
+  const mergedMap = new Map();
+  allDocs.forEach(s => {
+    const period = s.cutoffDate || "기준일 미설정";
+    const isUnprocessed = !(s.processedByPeriod && s.processedByPeriod[period]);
+    if (isUnprocessed) {
+      const mKey = s.studentId;
+      if (!mergedMap.has(mKey)) {
+        mergedMap.set(mKey, { ...s, selections: { ...s.selections }, _merged: false, _mergedPeriods: [period], _mergedDocIds: [s.docId] });
+      } else {
+        const existing = mergedMap.get(mKey);
+        existing._merged = true; existing._mergedPeriods.push(period); existing._mergedDocIds.push(s.docId);
+        existing.updatedAt = s.updatedAt; existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
+        Object.entries(s.selections || {}).forEach(([series, val]) => { existing.selections[series] = val; });
+      }
+    } else {
+      const mKey = `${s.studentId}__processed__${s.docId}`;
+      mergedMap.set(mKey, { ...s, _merged: false, _mergedPeriods: [period], _mergedDocIds: [s.docId] });
+    }
+  });
+
+  let changed = Array.from(mergedMap.values());
+  if (_showOnlyUnprocessed) {
+    changed = changed.filter(s => { const period = s.cutoffDate || "기준일 미설정"; return !(s.processedByPeriod && s.processedByPeriod[period]); });
+  }
+
+  if (!changed.length) { el.innerHTML = `<div class="empty">${_showOnlyUnprocessed ? "미처리 내역이 없습니다 🎉" : "변경 내역이 없습니다"}</div>`; return; }
+
+  const priceDoc2 = await db.collection("settings").doc("prices").get();
+  const priceMap = { ...DEFAULT_PRICES, ...(priceDoc2.exists ? priceDoc2.data() : {}) };
+
+  const allMonths = new Set();
+  changed.forEach(s => {
+    const periods = s._mergedPeriods || [s.cutoffDate];
+    periods.forEach(p => {
+      if (!p || p === "기준일 미설정") return;
+      contents.forEach(item => { if (item.deliveryDate && item.deliveryDate >= p) allMonths.add(item.deliveryDate.slice(0, 7)); });
+    });
+  });
+  const sortedMonths = Array.from(allMonths).sort();
+
+  // ── [수정3] Firebase 저장된 월 필터 반영 ──
+  const savedVisibleMonths = monthDoc.exists ? (monthDoc.data().visibleMonths || null) : null;
+  const _today2 = new Date();
+  const _todayDay = _today2.getDate();
+  const _thisMonth = `${_today2.getFullYear()}-${String(_today2.getMonth()+1).padStart(2,"0")}`;
+  const _nextMonth = (() => { const d = new Date(_today2.getFullYear(), _today2.getMonth()+1, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; })();
+  let visibleMonths;
+  if (savedVisibleMonths && savedVisibleMonths.length > 0) {
+    visibleMonths = new Set(savedVisibleMonths.filter(m => sortedMonths.includes(m)));
+    if (visibleMonths.size === 0) {
+      const _def = new Set(_todayDay > 15 ? sortedMonths.filter(m => m === _thisMonth || m === _nextMonth) : sortedMonths.filter(m => m === _thisMonth));
+      if (_def.size === 0) sortedMonths.forEach(m => _def.add(m));
+      visibleMonths = _def;
+    }
+  } else {
+    const _def = new Set(_todayDay > 15 ? sortedMonths.filter(m => m === _thisMonth || m === _nextMonth) : sortedMonths.filter(m => m === _thisMonth));
+    if (_def.size === 0) sortedMonths.forEach(m => _def.add(m));
+    visibleMonths = _def;
+  }
+
+  const mfEl = document.getElementById("monthFilters");
+  if (mfEl) {
+    const allChecked = sortedMonths.every(m => visibleMonths.has(m));
+    const allLabel = `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer;padding:4px 2px;font-weight:700;"><input type="checkbox" id="monthAllCheck" ${allChecked?"checked":""} style="accent-color:#ED0081;width:14px;height:14px;" onchange="onAllMonthToggle(this.checked)"> 전체</label><div style="height:1px;background:#f0f0ee;margin:4px 0;"></div>`;
+    mfEl.innerHTML = allLabel + sortedMonths.map(m => {
+      const label = monthNames[m.slice(5,7)] || m;
+      const checked = visibleMonths.has(m);
+      return `<label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#555;cursor:pointer;padding:4px 2px;"><input type="checkbox" data-month="${m}" ${checked?"checked":""} style="accent-color:#ED0081;width:14px;height:14px;" onchange="onMonthToggle('${m}',this.checked)"> ${label}</label>`;
+    }).join("");
+    updateMonthDropdownLabel();
+  }
+
+  el.innerHTML = changed.map(s => {
+    const period = s.cutoffDate || "기준일 미설정";
+    // ── [수정2] sCountI 오류 수정 (subject2 Ⅱ→Ⅰ) ──
+    const sCountI  = ((s.subject1||"").includes("Ⅰ")?1:0) + ((s.subject2||"").includes("Ⅰ")?1:0);
+    const sCountII = ((s.subject1||"").includes("Ⅱ")?1:0) + ((s.subject2||"").includes("Ⅱ")?1:0);
+    const isUnprocessed = !(s.processedByPeriod && s.processedByPeriod[period]);
+    const seriesHistory = s._seriesHistory || {};
+    const seriesNetInfo = {};
+    if (isUnprocessed) {
+      Object.entries(seriesHistory).forEach(([series, hist]) => {
+        if (hist.length < 2) return;
+        const first = hist[0]; const last = hist[hist.length - 1];
+        const firstIsCancel = first.val === "취소" || first.val === "환불";
+        const lastIsCancel  = last.val  === "취소" || last.val  === "환불";
+        if (firstIsCancel === lastIsCancel) return;
+        const firstOrder = first.firstOrder ?? Infinity;
+        const lastOrder  = last.firstOrder  ?? Infinity;
+        if (firstOrder === lastOrder) {
+          seriesNetInfo[series] = { netted: true };
+        } else {
+          const [earlierOrder, laterOrder] = firstOrder < lastOrder ? [firstOrder, lastOrder] : [lastOrder, firstOrder];
+          const partialItems = contents.filter(item => { const sn = getSeriesName(item.name); if (sn !== series || !item.deliveryDate) return false; return item.order >= earlierOrder && item.order < laterOrder; }).sort((a,b) => a.order - b.order);
+          if (partialItems.length > 0) seriesNetInfo[series] = { partial: true, partialItems, finalVal: last.val, firstVal: first.val };
+        }
+      });
+    }
+
+    let totalAmount = 0;
+    const effectiveSelections = Object.fromEntries(Object.entries(s.selections || {}).filter(([series]) => !seriesNetInfo[series]?.netted));
+    const applyEntries  = Object.entries(effectiveSelections).filter(([,v]) => v !== "취소" && v !== "환불");
+    const cancelEntries = Object.entries(effectiveSelections).filter(([,v]) => v === "취소" || v === "환불");
+
+    function renderGroup(entries, groupLabel, groupColor) {
+      const rows = entries.flatMap(([series, val]) => {
+        if (!s.cutoffDate) return [];
+        const isCancel = val === "취소" || val === "환불";
+        const sciMult = series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ" ? (sCountI || 1) : series === "CRUX 과학Ⅱ" ? (sCountII || 1) : 1;
+        const dispNames = getDisplayNames(series).join(" · ");
+        let sciSubjects = "";
+        if (series === "CRUX 과학Ⅰ" || series === "CIRCUIT 과학Ⅰ") { const subs = [s.subject1, s.subject2].filter(v => v && v.includes("Ⅰ")); if (subs.length) sciSubjects = ` (${subs.join(", ")})`; }
+        else if (series === "CRUX 과학Ⅱ") { const subs = [s.subject1, s.subject2].filter(v => v && v.includes("Ⅱ")); if (subs.length) sciSubjects = ` (${subs.join(", ")})`; }
+        const isSciSeries = series === "CRUX 과학Ⅰ" || series === "CRUX 과학Ⅱ" || series === "CIRCUIT 과학Ⅰ";
+        const netInfo = seriesNetInfo[series];
+        if (netInfo?.partial) {
+          const { partialItems } = netInfo;
+          const isPartialCancel = isCancel;
+          const partialMonthly = {};
+          partialItems.forEach(item => { const ym = item.deliveryDate.slice(0,7); if (!partialMonthly[ym]) partialMonthly[ym] = []; partialMonthly[ym].push(item); });
+          const partialActionLabel = isCancel ? "취소" : "신청";
+          const seenDates = new Set();
+          const partialRoundGroups = [];
+          partialItems.forEach(item => { if (!seenDates.has(item.deliveryDate)) { seenDates.add(item.deliveryDate); partialRoundGroups.push(getFirstRound(item.name)); } });
+          const roundLabel = partialRoundGroups.join(", ") + `만 ${partialActionLabel}`;
+          const seriesHeader = `<div style="display:flex;align-items:center;gap:5px;font-size:13px;padding:4px 0 2px;"><span style="color:#333;font-weight:600;">${dispNames}</span><span style="color:#f9a825;font-size:12px;">${roundLabel}</span>${sciSubjects ? `<span style="color:#888;font-size:12px;">${sciSubjects}</span>` : ""}<span style="color:#f9a825;font-size:12px;font-weight:700;">*</span></div>`;
+          const monthRows = Object.entries(partialMonthly).sort(([a],[b]) => a.localeCompare(b)).map(([ym, items]) => {
+            const mm = ym.slice(5,7); const mLabel = monthNames[mm] || ym;
+            const count = items.length;
+            const unitContentPrice = items[0] ? getContentPrice(items[0].name, priceMap) : 0;
+            const amount = unitContentPrice * count * sciMult;
+            const multStr = isSciSeries ? `×${sciMult}과목` : "";
+            const amountStr = unitContentPrice ? `<span style="color:${groupColor};font-size:12px;font-weight:600;">${isPartialCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${unitContentPrice.toLocaleString()}원${multStr})</span>` : "";
+            const isVisible = visibleMonths.has(ym);
+            totalAmount += isVisible ? (isPartialCancel ? -amount : amount) : 0;
+            return `<div class="month-row" data-month="${ym}" data-amount="${isPartialCancel?-amount:amount}" style="display:${isVisible?"flex":"none"};align-items:center;gap:8px;font-size:12px;padding:2px 0 2px 8px;"><span style="background:#f0f0ee;color:#666;padding:2px 9px;border-radius:10px;font-weight:600;font-size:11px;">${mLabel}</span>${amountStr}</div>`;
+          }).join("");
+          return [seriesHeader + monthRows];
+        }
+        const monthlyItems = {};
+        const effectiveCutoff = s._mergedPeriods ? s._mergedPeriods.filter(p => p !== "기준일 미설정").sort()[0] || s.cutoffDate : s.cutoffDate;
+        contents.filter(item => getSeriesName(item.name) === series && item.deliveryDate && item.deliveryDate >= effectiveCutoff).sort((a,b) => a.order - b.order).forEach(item => { const ym = item.deliveryDate.slice(0,7); if (!monthlyItems[ym]) monthlyItems[ym] = []; monthlyItems[ym].push(item); });
+        if (Object.keys(monthlyItems).length === 0) return [];
+        const firstRound = getFirstRound(Object.values(monthlyItems)[0][0].name);
+        const seriesHeader = `<div style="display:flex;align-items:center;gap:5px;font-size:13px;padding:4px 0 2px;"><span style="color:#333;font-weight:600;">${dispNames}</span><span style="color:#aaa;font-size:12px;">${firstRound}부터</span>${sciSubjects ? `<span style="color:#888;font-size:12px;">${sciSubjects}</span>` : ""}</div>`;
+        const monthRows = Object.entries(monthlyItems).sort(([a],[b]) => a.localeCompare(b)).map(([ym, items]) => {
+          const mm = ym.slice(5,7); const mLabel = monthNames[mm] || ym;
+          const count = items.length;
+          const unitContentPrice = items[0] ? getContentPrice(items[0].name, priceMap) : 0;
+          const amount = unitContentPrice * count * sciMult;
+          const multStr = isSciSeries ? `×${sciMult}과목` : "";
+          const amountStr = unitContentPrice ? `<span style="color:${groupColor};font-size:12px;font-weight:600;">${isCancel?"-":"+"}${amount.toLocaleString()}원 (${count}개×${unitContentPrice.toLocaleString()}원${multStr})</span>` : "";
+          const isVisible = visibleMonths.has(ym);
+          totalAmount += isVisible ? (isCancel ? -amount : amount) : 0;
+          return `<div class="month-row" data-month="${ym}" data-amount="${isCancel?-amount:amount}" style="display:${isVisible?"flex":"none"};align-items:center;gap:8px;font-size:12px;padding:2px 0 2px 8px;"><span style="background:#f0f0ee;color:#666;padding:2px 9px;border-radius:10px;font-weight:600;font-size:11px;">${mLabel}</span>${amountStr}</div>`;
+        }).join("");
+        return [seriesHeader + monthRows];
+      });
+      if (!rows.length) return "";
+      return `<div style="margin-bottom:6px;"><div style="font-weight:700;color:${groupColor};font-size:13px;padding:4px 0 2px;border-bottom:1px solid ${groupColor}20;">[${groupLabel}]</div>${rows.join("")}</div>`;
+    }
+
+    const changeList = renderGroup(applyEntries, "신청", "#2BADA0") + renderGroup(cancelEntries, "취소", "#e5534b");
+    if (!changeList.trim()) return "";
+
+    const totalColor = totalAmount < 0 ? "#e5534b" : "#2BADA0";
+    const totalStr = totalAmount !== 0 ? `<div class="monthly-total" style="margin-top:8px;padding:6px 10px;background:#f8f8f6;border-radius:8px;font-size:13px;font-weight:700;color:${totalColor};text-align:right;">표시 합계: ${totalAmount>0?"+":""}${totalAmount.toLocaleString()}원</div>` : "";
+
+    const mergedDocIds  = s._mergedDocIds  || [s.docId];
+    const mergedPeriods = s._mergedPeriods || [s.cutoffDate || "기준일 미설정"];
+    const allPeriodProcessed = mergedPeriods.every(p => s.processedByPeriod && s.processedByPeriod[p]);
+    const processed = allPeriodProcessed;
+    const processedAt  = processed ? (mergedPeriods.map(p => s.processedAtByPeriod?.[p]).filter(Boolean).join(", ")) : null;
+    const unprocessedAt= !processed ? (mergedPeriods.map(p => s.unprocessedAtByPeriod?.[p]).filter(Boolean).join(", ")) : null;
+    const memoRaw = mergedPeriods.map(p => s.memoByPeriod?.[p]).filter(Boolean).join(" / ") || "";
+    const memo = stripMemoMeta(memoRaw);
+    const memoFull = memoRaw;
+    const submittedAt = s.updatedAt?.toDate ? s.updatedAt.toDate().toLocaleString("ko-KR",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}) : "";
+    const sortedPeriods = mergedPeriods.filter(p => p !== "기준일 미설정").sort().reverse();
+    const periodLabel = sortedPeriods.length > 0 ? formatDateKR(sortedPeriods[0]) : "";
+    const toggleDocIds  = JSON.stringify(mergedDocIds).replace(/"/g, "&quot;");
+    const togglePeriods = JSON.stringify(mergedPeriods).replace(/"/g, "&quot;");
+
+    // ── [수정1] data-memo 속성으로 저장된 비고값 전달 ──
+    const safeMemo = memo.replace(/"/g, "&quot;");
+
+    return `<div class="student-card" data-name="${s.name}" data-sid="${s.studentId}" style="border:1px solid ${processed?'#e5e5e3':'#fbd4e8'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:0.75rem;background:${processed?'#fafafa':'#fff'};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;flex-wrap:wrap;">
+            <span style="font-size:15px;font-weight:700;color:${processed?'#aaa':'#1a1a1a'};">${s.name}</span>
+            <span style="font-size:12px;color:#888;">${s.ban}반 · ${s.group}그룹</span>
+            <span style="font-size:11px;color:#bbb;">${s.studentId}</span>
+          </div>
+          ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:4px;">신청/취소 시점: ${submittedAt}${periodLabel ? " · 기준일 " + periodLabel : ""}${s.paymentMethod ? ` · 결제: <span style="background:#e4f5f3;color:#2BADA0;padding:1px 7px;border-radius:8px;font-size:11px;">${s.paymentMethod}</span>` : ""}</div>` : ""}
+          ${(isUnprocessed && Object.keys(seriesNetInfo).length > 0) ? `<div style="font-size:11px;color:#f9a825;font-weight:500;margin-bottom:8px;">⚠ 미처리 건 중 신청/취소 번복 이력있음 · 최신값 기준으로 표시</div>` : `<div style="margin-bottom:8px;"></div>`}
+          ${changeList}${totalStr}
+          <div style="margin-top:8px;">
+            <input type="text" placeholder="비고 입력 후 Enter"
+              class="memo-input"
+              style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
+              data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
+              data-memo="${safeMemo}"
+              onkeydown="if(event.key==='Enter'){saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value);this.blur();}"
+              onblur="saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value)" />
+            ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;padding-left:4px;">${memoFull.replace(memo,'').trim()}</div>` : ""}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
+          <button onclick="toggleProcessedMerged('${toggleDocIds}','${togglePeriods}',${!processed})"
+            style="padding:8px 14px;font-size:12px;font-weight:600;border-radius:8px;cursor:pointer;border:none;background:${processed?'#f0f0ee':'#ED0081'};color:${processed?'#aaa':'#fff'};">
+            ${processed ? '처리완료 ✓' : '미처리'}
+          </button>
+          ${processed && processedAt    ? `<div style="font-size:10px;color:#2BADA0;text-align:center;">처리: ${processedAt}</div>`   : ""}
+          ${!processed && unprocessedAt ? `<div style="font-size:10px;color:#e5534b;text-align:center;">취소: ${unprocessedAt}</div>` : ""}
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // ── [수정1] DOM 삽입 후 memo-input 값 복원 ──
+  el.querySelectorAll("input.memo-input").forEach(input => {
+    const memoVal = input.dataset.memo || "";
+    if (memoVal) input.value = memoVal;
+  });
+}
+
+// ============================================================
+// [수정4] loadWorkListTab - geometryStudents 타입 통일 (Set→Map)
+// ============================================================
+async function loadWorkListTab() {
+  await loadGeometryStudents();
+  const snap = await db.collection("contents").orderBy("deliveryDate").get();
+  const dates = new Set();
+  snap.docs.forEach(d => { const date = d.data().deliveryDate; if (date) dates.add(date); });
+  const sel = document.getElementById("workDateSelect");
+  sel.innerHTML = '<option value="">배부일을 선택하세요</option>';
+  const _now2 = new Date(); const _kst2 = new Date(_now2.getTime() + 9*60*60*1000);
+  const todayStr = _kst2.toISOString().slice(0,10);
+  Array.from(dates).sort().filter(d => d >= todayStr).forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d;
+    const dt = new Date(d);
+    const month = dt.getMonth() + 1; const day = dt.getDate();
+    const weekDay = ["일","월","화","수","목","금","토"][dt.getDay()];
+    opt.textContent = `${month}월 ${day}일 (${weekDay})`;
+    sel.appendChild(opt);
+  });
+  sel.onchange = async function() {
+    const date = this.value;
+    const previewEl = document.getElementById("workDatePreview");
+    if (!date) { previewEl.innerHTML = ""; return; }
+    previewEl.innerHTML = '<div style="color:#aaa;font-size:13px;">불러오는 중...</div>';
+    const snap = await db.collection("contents").where("deliveryDate","==",date).orderBy("order").get();
+    const items = snap.docs.map(d => d.data());
+    if (!items.length) { previewEl.innerHTML = '<div style="color:#aaa;font-size:13px;">해당 배부일에 콘텐츠가 없습니다</div>'; return; }
+    const catColors = { "국어":"#2BADA0","수학":"#3b6fd4","영어":"#e67e22","과학탐구":"#9b59b6" };
+    const catOrder  = ["국어","수학","영어","과학탐구"];
+    const grouped   = {};
+    items.forEach(c => { const cat = c.category || "기타"; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(c); });
+    previewEl.innerHTML = catOrder.filter(cat => grouped[cat]).map(cat => {
+      const color = catColors[cat] || "#888";
+      const tags  = grouped[cat].map(c => `<div style="padding:4px 12px;border-radius:8px;background:${color}18;border:1px solid ${color}40;font-size:12px;color:${color};font-weight:600;">${c.name}</div>`).join("");
+      return `<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:700;color:${color};margin-bottom:4px;padding-bottom:3px;border-bottom:1.5px solid ${color}40;">${cat}</div><div style="display:flex;flex-direction:column;gap:3px;">${tags}</div></div>`;
+    }).join("");
+  };
+  updateSortPreview();
+}
+</script>
+<!-- ========== 패치 끝 ========== -->
 </body>
 </html>
