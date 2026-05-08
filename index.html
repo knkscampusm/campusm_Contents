@@ -2409,7 +2409,7 @@ async function loadChanges() {
               data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
               data-memo="${memo.replace(/"/g, '&quot;')}"
               onkeydown="if(event.key==='Enter'){saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value);this.blur();}"
-              onblur="saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value)" />
+               />
             ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;padding-left:4px;">${memoFull.replace(memo,'').trim()}</div>` : ""}
           </div>
         </div>
@@ -3456,7 +3456,7 @@ async function loadChanges() {
               data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
               data-memo="${safeMemo}"
               onkeydown="if(event.key==='Enter'){saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value);this.blur();}"
-              onblur="saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value)" />
+               />
             ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;padding-left:4px;">${memoFull.replace(memo,'').trim()}</div>` : ""}
           </div>
         </div>
