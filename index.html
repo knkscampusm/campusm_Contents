@@ -2409,6 +2409,7 @@ async function loadChanges() {
               style="min-height:28px;padding:5px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;cursor:pointer;word-break:break-all;"
               data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}" data-memo="${memo.replace(/"/g, '&quot;')}">
               ${memo || '<span style="color:#ccc;">비고 클릭하여 입력</span>'}
+              ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;">${memoFull.replace(memo,'').trim()}</div>` : ''}
             </div>
             <div class="memo-edit" style="display:none;gap:6px;align-items:center;margin-top:4px;">
               <input type="text" class="memo-input"
@@ -3500,6 +3501,7 @@ async function loadChanges() {
               style="min-height:28px;padding:5px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;cursor:pointer;word-break:break-all;"
               data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}" data-memo="${memo.replace(/"/g, '&quot;')}">
               ${memo || '<span style="color:#ccc;">비고 클릭하여 입력</span>'}
+              ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;">${memoFull.replace(memo,'').trim()}</div>` : ''}
             </div>
             <div class="memo-edit" style="display:none;gap:6px;align-items:center;margin-top:4px;">
               <input type="text" class="memo-input"
