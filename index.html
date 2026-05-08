@@ -2501,13 +2501,15 @@ async function toggleProcessed(docId, period, newVal) {
 
 async function saveMemo(docId, period, memo) {
   try {
-    // 빈값으로 저장하면 기존 비고가 지워지므로, 빈값일 때는 저장하지 않음
-    if (!memo || memo.trim() === "") return;
-    const now = new Date().toLocaleString("ko-KR", {month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
-    const staffLabel = _currentStaff ? ` (${_currentStaff} · ${now})` : ` (${now})`;
-    const memoWithMeta = `${memo}${staffLabel}`;
+    const memoWithMeta = memo && memo.trim()
+      ? (() => {
+          const now = new Date().toLocaleString("ko-KR", {month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"});
+          const staffLabel = _currentStaff ? ` (${_currentStaff} · ${now})` : ` (${now})`;
+          return `${memo.trim()}${staffLabel}`;
+        })()
+      : "";
     await db.collection("submissionHistory").doc(docId).update({ [`memoByPeriod.${period}`]: memoWithMeta });
-    toast("비고 저장됨");
+    toast(memo && memo.trim() ? "비고 저장됨" : "비고 삭제됨");
   } catch(e) { console.error("saveMemo error:", e); }
 }
 
