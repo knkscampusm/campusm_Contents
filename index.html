@@ -3164,7 +3164,7 @@ async function generateWorkList() {
   toast("✓ 엑셀 생성 완료!");
 }
 </script>
-  <!-- ========== 버그 수정 패치 (원본 HTML 하단 
+  <!-- ========== 버그 수정 패치 (원본 HTML 하단 <script>
 // ── 비고 클릭 편집 UI ──
 function startMemoEdit(displayEl) {
   const wrap = displayEl.closest('.memo-wrap');
@@ -3191,14 +3191,13 @@ async function saveMemoAndClose(input) {
   const docIdsJson = input.dataset.docIds;
   const periodsJson = input.dataset.periods;
   await saveMemoMerged(docIdsJson, periodsJson, memo);
-  // 화면 즉시 업데이트
   displayEl.dataset.memo = memo;
   displayEl.innerHTML = memo || '<span style="color:#ccc;">비고 클릭하여 입력</span>';
   const editDiv = wrap.querySelector('.memo-edit');
   displayEl.style.display = '';
   editDiv.style.display = 'none';
 }
-
+</script>
 </body> 직전에 삽입) ========== -->
 <script>
 // ============================================================
