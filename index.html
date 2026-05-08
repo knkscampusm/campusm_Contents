@@ -2404,15 +2404,22 @@ async function loadChanges() {
           ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:4px;">신청/취소 시점: ${submittedAt}${periodLabel ? " · 기준일 " + periodLabel : ""}${s.paymentMethod ? ` · 결제: <span style="background:#e4f5f3;color:#2BADA0;padding:1px 7px;border-radius:8px;font-size:11px;">${s.paymentMethod}</span>` : ""}</div>` : ""}
           ${(isUnprocessed && Object.keys(seriesNetInfo).length > 0) ? `<div style="font-size:11px;color:#f9a825;font-weight:500;margin-bottom:8px;">⚠ 미처리 건 중 신청/취소 번복 이력있음 · 최신값 기준으로 표시</div>` : `<div style="margin-bottom:8px;"></div>`}
           ${changeList}${totalStr}
-          <div style="margin-top:8px;">
-            <input type="text" placeholder="비고 입력 후 Enter"
-              class="memo-input"
-              style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
-              data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
-              data-memo="${memo.replace(/"/g, '&quot;')}"
-              onkeydown="if(event.key==='Enter'){saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value);this.blur();}"
-               />
-            ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;padding-left:4px;">${memoFull.replace(memo,'').trim()}</div>` : ""}
+          <div style="margin-top:8px;" class="memo-wrap">
+            <div class="memo-display" onclick="startMemoEdit(this)"
+              style="min-height:28px;padding:5px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;cursor:pointer;word-break:break-all;"
+              data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}" data-memo="${memo.replace(/"/g, '&quot;')}">
+              ${memo || '<span style="color:#ccc;">비고 클릭하여 입력</span>'}
+            </div>
+            <div class="memo-edit" style="display:none;gap:6px;align-items:center;margin-top:4px;">
+              <input type="text" class="memo-input"
+                style="flex:1;padding:5px 10px;font-size:12px;border:1px solid #2BADA0;border-radius:8px;outline:none;color:#555;"
+                data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
+                onkeydown="if(event.key==='Enter'){saveMemoAndClose(this);}else if(event.key==='Escape'){cancelMemoEdit(this.closest('.memo-wrap'));}" />
+              <button onclick="saveMemoAndClose(this.previousElementSibling)"
+                style="padding:5px 12px;font-size:12px;font-weight:600;background:#2BADA0;color:#fff;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;">저장</button>
+              <button onclick="cancelMemoEdit(this.closest('.memo-wrap'))"
+                style="padding:5px 10px;font-size:12px;color:#aaa;background:#f0f0ee;border:none;border-radius:8px;cursor:pointer;">취소</button>
+            </div>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
@@ -3157,7 +3164,42 @@ async function generateWorkList() {
   toast("✓ 엑셀 생성 완료!");
 }
 </script>
-  <!-- ========== 버그 수정 패치 (원본 HTML 하단 </body> 직전에 삽입) ========== -->
+  <!-- ========== 버그 수정 패치 (원본 HTML 하단 
+// ── 비고 클릭 편집 UI ──
+function startMemoEdit(displayEl) {
+  const wrap = displayEl.closest('.memo-wrap');
+  const editDiv = wrap.querySelector('.memo-edit');
+  const input = editDiv.querySelector('input.memo-input');
+  input.value = displayEl.dataset.memo || '';
+  displayEl.style.display = 'none';
+  editDiv.style.display = 'flex';
+  input.focus();
+  input.select();
+}
+
+function cancelMemoEdit(wrap) {
+  const displayEl = wrap.querySelector('.memo-display');
+  const editDiv = wrap.querySelector('.memo-edit');
+  displayEl.style.display = '';
+  editDiv.style.display = 'none';
+}
+
+async function saveMemoAndClose(input) {
+  const wrap = input.closest('.memo-wrap');
+  const displayEl = wrap.querySelector('.memo-display');
+  const memo = input.value.trim();
+  const docIdsJson = input.dataset.docIds;
+  const periodsJson = input.dataset.periods;
+  await saveMemoMerged(docIdsJson, periodsJson, memo);
+  // 화면 즉시 업데이트
+  displayEl.dataset.memo = memo;
+  displayEl.innerHTML = memo || '<span style="color:#ccc;">비고 클릭하여 입력</span>';
+  const editDiv = wrap.querySelector('.memo-edit');
+  displayEl.style.display = '';
+  editDiv.style.display = 'none';
+}
+
+</body> 직전에 삽입) ========== -->
 <script>
 // ============================================================
 // [수정1] 비고 저장 후 새로고침시 사라지는 버그 수정
@@ -3453,15 +3495,22 @@ async function loadChanges() {
           ${submittedAt ? `<div style="font-size:11px;color:#ED0081;font-weight:600;margin-bottom:4px;">신청/취소 시점: ${submittedAt}${periodLabel ? " · 기준일 " + periodLabel : ""}${s.paymentMethod ? ` · 결제: <span style="background:#e4f5f3;color:#2BADA0;padding:1px 7px;border-radius:8px;font-size:11px;">${s.paymentMethod}</span>` : ""}</div>` : ""}
           ${(isUnprocessed && Object.keys(seriesNetInfo).length > 0) ? `<div style="font-size:11px;color:#f9a825;font-weight:500;margin-bottom:8px;">⚠ 미처리 건 중 신청/취소 번복 이력있음 · 최신값 기준으로 표시</div>` : `<div style="margin-bottom:8px;"></div>`}
           ${changeList}${totalStr}
-          <div style="margin-top:8px;">
-            <input type="text" placeholder="비고 입력 후 Enter"
-              class="memo-input"
-              style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;outline:none;color:#555;"
-              data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
-              data-memo="${safeMemo}"
-              onkeydown="if(event.key==='Enter'){saveMemoMerged(this.dataset.docIds,this.dataset.periods,this.value);this.blur();}"
-               />
-            ${memoFull && memoFull !== memo ? `<div style="font-size:10px;color:#bbb;margin-top:3px;padding-left:4px;">${memoFull.replace(memo,'').trim()}</div>` : ""}
+          <div style="margin-top:8px;" class="memo-wrap">
+            <div class="memo-display" onclick="startMemoEdit(this)"
+              style="min-height:28px;padding:5px 10px;font-size:12px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;cursor:pointer;word-break:break-all;"
+              data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}" data-memo="${memo.replace(/"/g, '&quot;')}">
+              ${memo || '<span style="color:#ccc;">비고 클릭하여 입력</span>'}
+            </div>
+            <div class="memo-edit" style="display:none;gap:6px;align-items:center;margin-top:4px;">
+              <input type="text" class="memo-input"
+                style="flex:1;padding:5px 10px;font-size:12px;border:1px solid #2BADA0;border-radius:8px;outline:none;color:#555;"
+                data-doc-ids="${toggleDocIds}" data-periods="${togglePeriods}"
+                onkeydown="if(event.key==='Enter'){saveMemoAndClose(this);}else if(event.key==='Escape'){cancelMemoEdit(this.closest('.memo-wrap'));}" />
+              <button onclick="saveMemoAndClose(this.previousElementSibling)"
+                style="padding:5px 12px;font-size:12px;font-weight:600;background:#2BADA0;color:#fff;border:none;border-radius:8px;cursor:pointer;white-space:nowrap;">저장</button>
+              <button onclick="cancelMemoEdit(this.closest('.memo-wrap'))"
+                style="padding:5px 10px;font-size:12px;color:#aaa;background:#f0f0ee;border:none;border-radius:8px;cursor:pointer;">취소</button>
+            </div>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;">
