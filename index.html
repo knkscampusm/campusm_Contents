@@ -2201,7 +2201,7 @@ async function loadChanges() {
       existing.processedByPeriod    = s.processedByPeriod    || existing.processedByPeriod;
       existing.processedAtByPeriod  = s.processedAtByPeriod  || existing.processedAtByPeriod;
       existing.unprocessedAtByPeriod= s.unprocessedAtByPeriod|| existing.unprocessedAtByPeriod;
-      existing.memoByPeriod         = s.memoByPeriod         || existing.memoByPeriod;
+      existing.memoByPeriod         = (s.memoByPeriod && Object.keys(s.memoByPeriod).some(k => s.memoByPeriod[k])) ? Object.assign({}, existing.memoByPeriod || {}, s.memoByPeriod) : existing.memoByPeriod;
       existing.paymentMethod        = s.paymentMethod        || existing.paymentMethod;
     }
   });
@@ -2227,6 +2227,8 @@ async function loadChanges() {
         existing._merged = true; existing._mergedPeriods.push(period); existing._mergedDocIds.push(s.docId);
         existing.updatedAt = s.updatedAt; existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
         Object.entries(s.selections || {}).forEach(([series, val]) => { existing.selections[series] = val; });
+        if (s.memoByPeriod) existing.memoByPeriod = Object.assign({}, existing.memoByPeriod || {}, s.memoByPeriod);
+        if (s.memoByPeriod) existing.memoByPeriod = Object.assign({}, existing.memoByPeriod || {}, s.memoByPeriod);
       }
     } else {
       const mKey = `${s.studentId}__processed__${s.docId}`;
@@ -3265,6 +3267,8 @@ async function loadChanges() {
         existing._merged = true; existing._mergedPeriods.push(period); existing._mergedDocIds.push(s.docId);
         existing.updatedAt = s.updatedAt; existing.paymentMethod = s.paymentMethod || existing.paymentMethod;
         Object.entries(s.selections || {}).forEach(([series, val]) => { existing.selections[series] = val; });
+        if (s.memoByPeriod) existing.memoByPeriod = Object.assign({}, existing.memoByPeriod || {}, s.memoByPeriod);
+        if (s.memoByPeriod) existing.memoByPeriod = Object.assign({}, existing.memoByPeriod || {}, s.memoByPeriod);
       }
     } else {
       const mKey = `${s.studentId}__processed__${s.docId}`;
