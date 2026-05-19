@@ -694,7 +694,7 @@ const DEFAULT_PRICES = {
   "CIRCUIT 영어":       6500,
   "강대모의고사K 국어": 14000,
   "FF":                 0,
-  "한수위 모의고사":    0,
+  "이감 최상위실전":    14000,
   "CRUX 과학":          7000,
   "CRUX 과학Ⅰ":        7000,
   "CRUX 과학Ⅱ":        7000,
@@ -732,8 +732,8 @@ const INITIAL_CONTENTS = [
   { id: "ko_ff_4",    name: "FF 4회",                      category: "국어",    order: 20,  deliveryDate: "2026-06-11" },
   { id: "ko_ff_5",    name: "FF 5회",                      category: "국어",    order: 21,  deliveryDate: "2026-06-18" },
   { id: "ko_ff_6",    name: "FF 6회",                      category: "국어",    order: 22,  deliveryDate: "2026-06-25" },
-  { id: "ko_hsw_1",   name: "한수위 모의고사 1회",          category: "국어",    order: 23,  deliveryDate: "2026-06-11" },
-  { id: "ko_hsw_2",   name: "한수위 모의고사 2회",          category: "국어",    order: 24,  deliveryDate: "2026-06-18" },
+  { id: "ko_hsw_1",   name: "이감 최상위실전 시즌4-1",       category: "국어",    order: 23,  deliveryDate: "2026-06-11" },
+  { id: "ko_hsw_2",   name: "이감 최상위실전 시즌4-2",       category: "국어",    order: 24,  deliveryDate: "2026-06-18" },
   { id: "ma_crux_1",  name: "CRUX 수학 1회",               category: "수학",    order: 25,  deliveryDate: "2026-02-26" },
   { id: "ma_crux_2",  name: "CRUX 수학 2회",               category: "수학",    order: 26,  deliveryDate: "2026-03-12" },
   { id: "ma_crux_3",  name: "CRUX 수학 3회",               category: "수학",    order: 27,  deliveryDate: "2026-03-26" },
@@ -1040,6 +1040,7 @@ function getRoundCount(name) {
 
 function getContentPrice(name, priceMap) {
   const series = getSeriesName(name);
+  if (name.includes("최상위실전")) return 14000;
   if (series === "강대모의고사X 수학") {
     if (name.includes("3·4회+써킷X") || name.includes("5·6회+써킷X")) return 36540;
     return 20880;
@@ -1116,7 +1117,7 @@ function renderNotice() {
   });
 
   const catGroups = {};
-  const HIDDEN_SERIES = new Set(["한수위 모의고사"]);
+  const HIDDEN_SERIES = new Set([]);
 
   allSeriesMap.forEach(({ firstRefundable, hasAnyItem }, series) => {
     if (HIDDEN_SERIES.has(series)) return;
@@ -1217,9 +1218,12 @@ function renderNotice() {
       const subText = canRefund
         ? `<div style="font-size:11px;color:#2BADA0;margin-top:2px;">${getFirstRound(firstRefundable.name)}부터 신청/취소 가능 (다음 배부일: ${firstRefundable.deliveryDate})</div>`
         : `<div style="font-size:11px;color:#ccc;margin-top:2px;">배부 완료</div>`;
+      const igamNote = series === "이감"
+        ? `<div style="font-size:11px;color:#888;margin-top:2px;">*단, 이감 최상위 실전은 회당 14,000원(다음 배부일:2026-06-11)</div>`
+        : "";
 
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f5f5f3;gap:8px;">
-        <div style="flex:1;min-width:0;">${nameRow}${subText}</div>
+        <div style="flex:1;min-width:0;">${nameRow}${subText}${igamNote}</div>
         ${makeToggle(series, sel, canRefund)}
       </div>`;
     }).join("");
