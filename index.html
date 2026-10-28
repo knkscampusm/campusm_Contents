@@ -2584,10 +2584,18 @@ function switchTab(idx) {
 }
 
 (async function loadStaticRefundGuide() {
-  const doc = await db.collection("settings").doc("refund").get();
+  const [doc, lastSnap] = await Promise.all([
+    db.collection("settings").doc("refund").get(),
+    db.collection("contents").orderBy("deliveryDate", "desc").limit(1).get()
+  ]);
   const cutoff = doc.exists ? doc.data().cutoffDate : null;
+  const lastDate = lastSnap.empty ? null : lastSnap.docs[0].data().deliveryDate;
   const el = document.getElementById("staticRefundGuide");
-  if (el && cutoff) el.textContent = `${formatDateKR(cutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다`;
+  if (el && cutoff) {
+    el.textContent = (lastDate && cutoff > lastDate)
+      ? "이번 시즌 위클리팩 신청/취소가 마감되었습니다"
+      : `${formatDateKR(cutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다`;
+  }
   loadDeliverySchedule();
 })();
 
@@ -3190,6 +3198,14 @@ async function generateWorkList() {
       await db.collection("settings").doc("refund").set({ cutoffDate: nextDate });
       toast(`✓ 기준일이 ${nextLabel}로 변경되었습니다`);
     }
+  } else {
+    // 마지막 배부일 → 다음 날로 기준일 변경해 신청/취소 마감
+    const d = new Date(deliveryDate + "T00:00:00");
+    const curLabel = `${d.getMonth()+1}월 ${d.getDate()}일`;
+    d.setDate(d.getDate() + 1);
+    const closeDate = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    await db.collection("settings").doc("refund").set({ cutoffDate: closeDate });
+    alert(`${curLabel} 이후 배부일이 없습니다.\n신청/취소가 마감되었습니다.`);
   }
 
   // ── 드롭다운 새로고침 ──
