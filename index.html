@@ -1093,19 +1093,19 @@ function renderNotice() {
     .filter(c => c.deliveryDate && c.deliveryDate >= refundCutoff)
     .sort((a, b) => a.order - b.order);
 
-  if (!refundable.length) {
-    // 이후 배부일 없음 → 전체 마감 안내 (수정 불가)
+  // 이후 배부일 없음 → 전체 마감 (선택 내역은 보여주되 수정 불가)
+  const isClosed = !refundable.length;
+  let closedBoxHtml = "";
+  if (isClosed) {
     const lastDate = contents.map(c => c.deliveryDate).filter(Boolean).sort().pop() || "";
     const yearLabel = lastDate ? `${lastDate.slice(0,4)}년 ` : "";
-    el.innerHTML = `
-      <div style="padding:14px 16px;background:#f0f0ee;border-radius:10px;line-height:1.7;">
+    closedBoxHtml = `
+      <div style="padding:14px 16px;background:#f0f0ee;border-radius:10px;line-height:1.7;margin-bottom:1rem;">
         <div style="font-size:14px;font-weight:700;color:#555;margin-bottom:4px;">${yearLabel}위클리팩 신청/취소 전체 마감되었습니다. (수정 불가)</div>
         <div style="font-size:13px;color:#777;">지난 회차에 대한 개별 구매의 경우, 수납처에 별도로 말씀해주셔야합니다.</div>
       </div>`;
-    el.style.display = "";
     const ig = document.getElementById("inputGuide");
     if (ig) ig.textContent = "";
-    return;
   }
 
   const allSeriesMap = new Map();
@@ -1293,6 +1293,18 @@ function renderNotice() {
         }).join("")}
       </div>
     </div>` : "";
+
+  if (isClosed) {
+    el.innerHTML = `
+      ${closedBoxHtml}
+      <div>${gridHtml}</div>
+      <div style="margin-top:1.25rem;">
+        <button onclick="resetStudentView()" style="width:100%;padding:14px;font-size:16px;font-weight:700;background:#fff;color:#888;border:1.5px solid #ddd;border-radius:10px;cursor:pointer;">확인</button>
+      </div>
+    `;
+    el.style.display = "";
+    return;
+  }
 
   el.innerHTML = `
     ${cutoffTableHtml ? `<div style="margin-bottom:1rem;">${cutoffTableHtml}</div>` : ""}
