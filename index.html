@@ -309,7 +309,7 @@
   <div class="card" id="sidInputCard">
     <div style="padding:10px 12px;background:#e4f5f3;border-radius:10px;margin-bottom:12px;line-height:1.7;">
       <div id="staticRefundGuide" style="font-size:13px;font-weight:700;color:#2BADA0;margin-bottom:4px;"></div>
-      <div style="font-size:13px;color:#2BADA0;">위클리팩에 동봉되는 콘텐츠에 대한 신청/취소이며,<br>지난 회차에 대한 개별 구매의 경우, 수납처에 별도로 말씀해주셔야합니다.</div>
+      <div id="staticRefundSub" style="font-size:13px;color:#2BADA0;">위클리팩에 동봉되는 콘텐츠에 대한 신청/취소이며,<br>지난 회차에 대한 개별 구매의 경우, 수납처에 별도로 말씀해주셔야합니다.</div>
     </div>
     <div class="row">
       <input type="password" id="sidInput" placeholder="학번을 입력하세요" maxlength="20" autocomplete="new-password" onfocus="this.type='text';this.inputMode='numeric';" style="flex:1;margin:0;" />
@@ -1093,7 +1093,20 @@ function renderNotice() {
     .filter(c => c.deliveryDate && c.deliveryDate >= refundCutoff)
     .sort((a, b) => a.order - b.order);
 
-  if (!refundable.length) { el.style.display = "none"; return; }
+  if (!refundable.length) {
+    // 이후 배부일 없음 → 전체 마감 안내 (수정 불가)
+    const lastDate = contents.map(c => c.deliveryDate).filter(Boolean).sort().pop() || "";
+    const yearLabel = lastDate ? `${lastDate.slice(0,4)}년 ` : "";
+    el.innerHTML = `
+      <div style="padding:14px 16px;background:#f0f0ee;border-radius:10px;line-height:1.7;">
+        <div style="font-size:14px;font-weight:700;color:#555;margin-bottom:4px;">${yearLabel}위클리팩 신청/취소 전체 마감되었습니다. (수정 불가)</div>
+        <div style="font-size:13px;color:#777;">지난 회차에 대한 개별 구매의 경우, 수납처에 별도로 말씀해주셔야합니다.</div>
+      </div>`;
+    el.style.display = "";
+    const ig = document.getElementById("inputGuide");
+    if (ig) ig.textContent = "";
+    return;
+  }
 
   const allSeriesMap = new Map();
   contents.sort((a,b) => a.order - b.order).forEach(item => {
@@ -1433,6 +1446,7 @@ function closeConfirmModal() { document.getElementById("confirmModal").classList
 
 async function doSubmit() {
   if (!student) return;
+  if (!refundCutoff || !contents.some(c => c.deliveryDate && c.deliveryDate >= refundCutoff)) return;
   const touchedSelections = {};
   touchedSeries.forEach(series => {
     if (!selections[series]) return;
@@ -2591,10 +2605,14 @@ function switchTab(idx) {
   const cutoff = doc.exists ? doc.data().cutoffDate : null;
   const lastDate = lastSnap.empty ? null : lastSnap.docs[0].data().deliveryDate;
   const el = document.getElementById("staticRefundGuide");
+  const subEl = document.getElementById("staticRefundSub");
   if (el && cutoff) {
-    el.textContent = (lastDate && cutoff > lastDate)
-      ? "이번 시즌 위클리팩 신청/취소가 마감되었습니다"
-      : `${formatDateKR(cutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다`;
+    if (lastDate && cutoff > lastDate) {
+      el.textContent = `${lastDate.slice(0,4)}년 위클리팩 신청/취소 전체 마감되었습니다. (수정 불가)`;
+      if (subEl) subEl.textContent = "지난 회차에 대한 개별 구매의 경우, 수납처에 별도로 말씀해주셔야합니다.";
+    } else {
+      el.textContent = `${formatDateKR(cutoff)} 이후 배부 콘텐츠부터 신청/취소 가능합니다`;
+    }
   }
   loadDeliverySchedule();
 })();
