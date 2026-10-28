@@ -936,7 +936,8 @@ function setMsg(id, text, type = "") {
   el.textContent = text;
   el.className = "msg " + type;
 }
-function today() { return new Date().toISOString().slice(0, 10); }
+// 한국시간(KST) 기준 오늘 날짜 YYYY-MM-DD
+function today() { return new Date(Date.now() + 9*60*60*1000).toISOString().slice(0, 10); }
 function closeModal() { document.getElementById("loginModal").classList.remove("open"); }
 function openAdminLogin() { document.getElementById("loginModal").classList.add("open"); }
 
@@ -1677,7 +1678,7 @@ async function loadAdminContents() {
     </div>`;
   }
 
-  const todayMonthKey = new Date().toISOString().slice(0,7);
+  const todayMonthKey = today().slice(0,7);
 
   el.innerHTML = Object.keys(monthGroups).sort().map(mKey => {
     const mLabel = mKey === "9999-99" ? "날짜 미정" : (monthNames[mKey.slice(5,7)] || mKey.slice(5,7)+"월");
@@ -2664,7 +2665,7 @@ async function loadDeliverySchedule() {
     const m  = String(dt.getMonth()+1).padStart(2,"0");
     const weekDay = ["일","월","화","수","목","금","토"][dt.getDay()];
     const dateLabel = `${monthNames[m]||m+"월"} ${dt.getDate()}일 (${weekDay})`;
-    const isToday = dateStr === today.toISOString().slice(0,10);
+    const isToday = dateStr === new Date(Date.now() + 9*60*60*1000).toISOString().slice(0,10);
     const isCutoff = cutoffDate && dateStr === cutoffDate;
     const cats = dateGroups[dateStr];
 
